@@ -146,6 +146,11 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         result["sessions"] = sessions
         return result
 
+    @app.delete("/api/campaigns/{campaign_id}")
+    async def delete_campaign(campaign_id: str):
+        await engine.campaign_mgr.delete(campaign_id)
+        return {"deleted": campaign_id}
+
     @app.post("/api/scan")
     async def start_scan(req: ScanRequest, background_tasks: BackgroundTasks):
         config_override = {

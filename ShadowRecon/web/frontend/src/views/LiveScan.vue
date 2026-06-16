@@ -83,6 +83,7 @@ const statusClass = computed(() => {
 })
 
 onMounted(() => {
+  store.reset()
   store.connectWebSocket(sessionId)
   startPolling()
 })

@@ -46,6 +46,7 @@ const legendItems = [
 ]
 
 onMounted(async () => {
+  store.graphData = { nodes: [], edges: [] }
   await store.getScanMap(sessionId)
 })
 </script>
