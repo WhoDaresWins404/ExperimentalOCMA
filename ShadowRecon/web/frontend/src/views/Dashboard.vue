@@ -29,13 +29,14 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
 import ScanForm from '../components/ScanForm.vue'
 
 const store = useScanStore()
 const router = useRouter()
+const campaigns = computed(() => store.campaigns)
 
 onMounted(() => {
   store.fetchCampaigns()
