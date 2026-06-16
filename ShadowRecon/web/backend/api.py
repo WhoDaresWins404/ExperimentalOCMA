@@ -1,5 +1,6 @@
 import json
 import asyncio
+import os
 from typing import Optional
 from datetime import datetime
 
@@ -48,6 +49,10 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+    if os.path.isdir(frontend_dist):
+        app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="frontend_assets")
+
     engine = ScanEngine(config)
     report_gen = ReportGenerator(config.output_dir)
     training_exporter = TrainingDataExporter()
@@ -64,6 +69,22 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         for task in active_scans.values():
             task.cancel()
         await engine.shutdown()
+
+    @app.get("/")
+    async def root():
+        if os.path.isdir(frontend_dist) and os.path.exists(os.path.join(frontend_dist, "index.html")):
+            return FileResponse(os.path.join(frontend_dist, "index.html"))
+        return JSONResponse({
+            "message": "ShadowRecon API running.",
+            "docs": "/docs",
+            "api": {
+                "health": "/api/health",
+                "campaigns": "/api/campaigns",
+                "start_scan": "POST /api/scan",
+                "websocket": "WS /ws/scan/{session_id}",
+            },
+            "frontend": "Build with: cd web/frontend && npm install && npm run build",
+        })
 
     @app.get("/api/health")
     async def health():
@@ -165,7 +186,7 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         return result
 
     @app.get("/api/scan/{session_id}/report")
-    async def get_report(session_id: str, format: str = Query("html", regex="^(html|json)$")):
+    async def get_report(session_id: str, format: str = Query("html", pattern="^(html|json)$")):
         session = await engine.session_mgr.get(session_id)
         if not session:
             raise HTTPException(404, "Session not found")
