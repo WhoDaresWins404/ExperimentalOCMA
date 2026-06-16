@@ -151,6 +151,10 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                 if result.status == ScanStatus.COMPLETED:
                     mapper = Mapper(session.id)
                     mapper.process_results(result.endpoints, result.findings, result.target)
+                    for node in mapper.get_graph_nodes():
+                        await engine.db.add_graph_node(node)
+                    for edge in mapper.get_graph_edges():
+                        await engine.db.add_graph_edge(edge)
                     summary = result.stats
                     if summary and summary.get("session_id"):
                         report_gen.generate_all(result, ScanSummary(**summary))
