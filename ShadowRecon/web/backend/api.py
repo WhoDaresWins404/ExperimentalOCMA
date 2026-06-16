@@ -1,6 +1,7 @@
 import json
 import asyncio
 import os
+import httpx
 from typing import Optional
 from datetime import datetime
 
@@ -13,6 +14,7 @@ from pydantic import BaseModel
 from core.config import ScanConfig
 from core.engine import ScanEngine
 from core.models import ScanStatus, ScanSummary, ScanSession
+from core.exceptions import LLMUnavailable
 from mapping.mapper import Mapper
 from reporting.report_generator import ReportGenerator
 from exporters.training_data import TrainingDataExporter
@@ -89,6 +91,39 @@ def create_app(config: ScanConfig = None) -> FastAPI:
     @app.get("/api/health")
     async def health():
         return {"status": "ok", "tool": "ShadowRecon", "version": "1.0.0"}
+
+    @app.get("/api/llm/check")
+    async def check_llm(provider: str = "ollama", host: str = "", model: str = ""):
+        from llm.ollama_provider import OllamaProvider
+        from llm.openai_provider import OpenAIProvider
+        cfg = config.llm
+        test_host = host or cfg.ollama_host
+        test_model = model or cfg.model_name
+        result = {"provider": provider, "host": test_host, "model": test_model, "reachable": False, "error": ""}
+        try:
+            if provider == "ollama":
+                llm = OllamaProvider(cfg)
+                async with httpx.AsyncClient(timeout=5) as client:
+                    resp = await client.get(f"{test_host.rstrip('/')}/api/tags")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        models = [m["name"] for m in data.get("models", [])]
+                        result["reachable"] = True
+                        result["models"] = models
+                        result["model_found"] = test_model in models
+                        if test_model not in models:
+                            result["error"] = f"Model '{test_model}' not found. Available: {', '.join(models) or 'none'}"
+                    else:
+                        result["error"] = f"HTTP {resp.status_code}"
+            else:
+                llm = OpenAIProvider(cfg)
+                if llm.health_check():
+                    result["reachable"] = True
+                else:
+                    result["error"] = "No API key configured"
+        except Exception as e:
+            result["error"] = str(e)
+        return result
 
     @app.post("/api/campaigns")
     async def create_campaign(req: CampaignCreate):

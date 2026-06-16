@@ -27,6 +27,14 @@
         <input v-model="form.enable_llm" type="checkbox" />
         <span>Enable LLM Analysis</span>
       </label>
+      <button type="button" class="test-btn" :disabled="llmTesting" @click="testLlm">
+        {{ llmTesting ? 'Testing...' : 'Test LLM' }}
+      </button>
+      <span v-if="llmResult" :class="['llm-status', llmResult.reachable ? 'ok' : 'err']" :title="llmResult.error || ''">
+        {{ llmResult.reachable
+          ? `LLM OK (${llmResult.model_found ? llmResult.model : 'model not found'})`
+          : (llmResult.error ? 'LLM: ' + llmResult.error : 'LLM unreachable') }}
+      </span>
     </div>
 
     <div class="form-row options-row">
@@ -59,6 +67,24 @@ import { ref, reactive } from 'vue'
 const emit = defineEmits(['start'])
 const props = defineProps({ campaignId: String })
 const submitting = ref(false)
+const llmTesting = ref(false)
+const llmResult = ref(null)
+
+const API = ''
+
+async function testLlm() {
+  llmTesting.value = true
+  llmResult.value = null
+  try {
+    const res = await fetch(`${API}/api/llm/check`)
+    const data = await res.json()
+    llmResult.value = data
+  } catch (e) {
+    llmResult.value = { reachable: false, error: e.message }
+  } finally {
+    llmTesting.value = false
+  }
+}
 
 const form = reactive({
   url: '',
@@ -105,4 +131,14 @@ select.form-input { cursor: pointer; }
 }
 .submit-btn:hover { background: #00b8d4; }
 .submit-btn:disabled { background: #1e3a5f; color: #556677; cursor: not-allowed; }
+.test-btn {
+  background: #1a2a4a; color: #00e5ff; border: 1px solid #00e5ff;
+  padding: 6px 14px; border-radius: 4px; font-size: 0.85em;
+  cursor: pointer; transition: all 0.2s;
+}
+.test-btn:hover { background: #00e5ff; color: #0a0e17; }
+.test-btn:disabled { opacity: 0.5; cursor: wait; }
+.llm-status { font-size: 0.85em; font-weight: bold; }
+.llm-status.ok { color: #4caf50; }
+.llm-status.err { color: #f44336; }
 </style>
