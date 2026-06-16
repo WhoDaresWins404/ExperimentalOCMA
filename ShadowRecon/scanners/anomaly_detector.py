@@ -242,7 +242,7 @@ class AnomalyDetector(BaseScanner):
             findings.append(self.make_finding(
                 title=f"Server Technology Identified: {', '.join(detected)}",
                 description=f"Server header reveals: {resp.headers.get('server')}",
-                severity="info", endpoint=ep,
+                severity="none", endpoint=ep,
                 evidence={"server_header": resp.headers.get("server")},
                 tags=["fingerprint", "tls", "server"],
             ))

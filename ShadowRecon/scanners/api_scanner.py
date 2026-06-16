@@ -126,7 +126,7 @@ class ApiScanner(BaseScanner):
                         return self.make_finding(
                             title=f"API Collection Endpoint: {ep.url}",
                             description=f"REST API endpoint returning JSON array ({len(data)} items).",
-                            severity="info", endpoint=ep,
+                            severity="none", endpoint=ep,
                             evidence={"item_count": len(data), "sample": str(data[:2])[:500]},
                             tags=["api", "rest"],
                         )
@@ -134,7 +134,7 @@ class ApiScanner(BaseScanner):
                     return self.make_finding(
                         title=f"API Object Endpoint: {ep.url}",
                         description=f"REST API endpoint returning JSON object. Keys: {', '.join(keys)}",
-                        severity="info", endpoint=ep,
+                        severity="none", endpoint=ep,
                         evidence={"keys": keys, "has_data": len(data) > 0},
                         tags=["api", "rest"],
                     )
@@ -144,7 +144,7 @@ class ApiScanner(BaseScanner):
                 return self.make_finding(
                     title=f"XML/SOAP Endpoint: {ep.url}",
                     description="Endpoint returning XML data — potential SOAP/XML-RPC service.",
-                    severity="info", endpoint=ep,
+                    severity="none", endpoint=ep,
                     tags=["api", "xml", "soap"],
                 )
         if resp.status_code in (401, 403):

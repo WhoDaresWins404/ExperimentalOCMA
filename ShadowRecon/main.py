@@ -75,7 +75,7 @@ async def cli_scan(args):
             print(f"  [{data.get('status', '?')}]", end="\r")
         elif event == "finding":
             f = data
-            sev = f.get("severity", "info").upper()
+            sev = f.get("severity", "none").upper()
             print(f"  [+] [{sev}] {f.get('title', '')[:80]}")
         elif event == "scanner_done":
             print(f"  [*] Scanner '{data.get('scanner', '?')}' done: "

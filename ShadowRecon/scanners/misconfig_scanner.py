@@ -113,7 +113,7 @@ class MisconfigScanner(BaseScanner):
             findings.append(self.make_finding(
                 title=f"Security Headers Present ({len(present)}/{len(SECURITY_HEADERS)})",
                 description=f"Found {len(present)} security headers: {', '.join(h['header'] for h in present)}",
-                severity="info", endpoint=ep,
+                severity="none", endpoint=ep,
                 evidence={"present": present},
                 tags=["headers", "info"],
             ))
