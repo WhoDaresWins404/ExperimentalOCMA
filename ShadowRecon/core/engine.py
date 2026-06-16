@@ -124,24 +124,23 @@ class ScanEngine:
                 await self.db.add_endpoint(ep)
                 self._emit("endpoint", ep.model_dump())
 
-            for finding in deduped_findings:
-                await self.db.add_finding(finding)
-                self._emit("finding", finding.model_dump())
-
-            result.endpoints = deduped_endpoints
-            result.findings = deduped_findings
-
-            await self.session_mgr.update_status(session_id, ScanStatus.LLM_ENRICH)
-            self._emit("status", {"session_id": session_id, "status": ScanStatus.LLM_ENRICH.value})
-
+            llm_summary_text = ""
             if self.config.llm.enabled and deduped_findings:
+                await self.session_mgr.update_status(session_id, ScanStatus.LLM_ENRICH)
+                self._emit("status", {"session_id": session_id, "status": ScanStatus.LLM_ENRICH.value})
                 from llm.enhancer import LLMEnhancer
                 enhancer = LLMEnhancer(self.config)
                 enriched = await enhancer.enrich_findings(deduped_findings, session_id)
-                for finding in enriched:
-                    if finding.is_llm_enhanced:
-                        await self.db.add_finding(finding)
                 result.findings = enriched
+                llm_summary_text = await enhancer.generate_summary(result)
+                for finding in enriched:
+                    self._emit("finding", finding.model_dump())
+                    await self.db.add_finding(finding)
+            else:
+                for finding in deduped_findings:
+                    self._emit("finding", finding.model_dump())
+                    await self.db.add_finding(finding)
+                result.findings = deduped_findings
 
             await self.session_mgr.update_status(session_id, ScanStatus.GENERATING_REPORT)
             self._emit("status", {"session_id": session_id, "status": ScanStatus.GENERATING_REPORT.value})
@@ -151,7 +150,7 @@ class ScanEngine:
             result.ended_at = datetime.utcnow()
             duration = time.time() - start_time
 
-            summary = self._build_summary(result, duration)
+            summary = self._build_summary(result, duration, llm_summary_text)
             result.stats = summary.model_dump()
 
             self._emit("complete", {
@@ -225,7 +224,7 @@ class ScanEngine:
 
         return results
 
-    def _build_summary(self, result: ScanResult, duration: float) -> ScanSummary:
+    def _build_summary(self, result: ScanResult, duration: float, llm_summary: str = "") -> ScanSummary:
         by_type = {}
         for ep in result.endpoints:
             t = ep.type.value if hasattr(ep.type, "value") else str(ep.type)
@@ -259,6 +258,7 @@ class ScanEngine:
             endpoints_by_type=by_type,
             findings_by_scanner=by_scanner,
             top_risks=top_risks,
+            llm_summary=llm_summary,
         )
 
     async def get_session_result(self, session_id: str) -> Optional[dict]:
