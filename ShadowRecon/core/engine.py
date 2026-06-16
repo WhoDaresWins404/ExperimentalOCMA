@@ -38,7 +38,10 @@ class ScanEngine:
     def _emit(self, event: str, data: Any):
         for cb in self._progress_callbacks:
             try:
-                cb(event, data)
+                if asyncio.iscoroutinefunction(cb):
+                    asyncio.create_task(cb(event, data))
+                else:
+                    cb(event, data)
             except Exception:
                 pass
 

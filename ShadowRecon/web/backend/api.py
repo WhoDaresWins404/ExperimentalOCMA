@@ -148,17 +148,19 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                 result = await engine.run_scan(
                     campaign.id, req.url, config_override, session_id=session.id
                 )
-                mapper = Mapper(session.id)
-                mapper.process_results(result.endpoints, result.findings, result.target)
-                summary = result.stats
-                report_gen.generate_all(result, ScanSummary(**summary) if isinstance(summary, dict) else summary)
+                if result.status == ScanStatus.COMPLETED:
+                    mapper = Mapper(session.id)
+                    mapper.process_results(result.endpoints, result.findings, result.target)
+                    summary = result.stats
+                    if summary and summary.get("session_id"):
+                        report_gen.generate_all(result, ScanSummary(**summary))
 
-                if config.llm.enabled:
-                    from llm.enhancer import LLMEnhancer
-                    enhancer = LLMEnhancer(config)
-                    pairs = await enhancer.generate_training_pairs(result.findings)
-                    if pairs:
-                        training_exporter.export_jsonl(pairs, session.id)
+                        if config.llm.enabled:
+                            from llm.enhancer import LLMEnhancer
+                            enhancer = LLMEnhancer(config)
+                            pairs = await enhancer.generate_training_pairs(result.findings)
+                            if pairs:
+                                training_exporter.export_jsonl(pairs, session.id)
             except Exception as e:
                 import traceback
                 tb = traceback.format_exc()
