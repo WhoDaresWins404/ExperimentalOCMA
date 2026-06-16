@@ -90,8 +90,6 @@ class ScanEngine:
             self._emit("status", {"session_id": session_id, "status": ScanStatus.WAF_CHECK.value})
 
             waf_findings, waf_endpoints = await self._run_waf_check(target, session_id)
-            result.endpoints.extend(waf_endpoints)
-            result.findings.extend(waf_findings)
 
             await self.session_mgr.update_status(session_id, ScanStatus.SCANNING)
             self._emit("status", {"session_id": session_id, "status": ScanStatus.SCANNING.value})
@@ -103,18 +101,24 @@ class ScanEngine:
             )
 
             scanner_results = await self._run_scanners(scan_target, scanner_instances, session_id)
-
-            all_endpoints = list(waf_endpoints)
-            all_findings = list(waf_findings)
-            for scanner_name, (finds, eps) in scanner_results.items():
-                all_endpoints.extend(eps)
-                all_findings.extend(finds)
+            scanner_instances.clear()
 
             await self.session_mgr.update_status(session_id, ScanStatus.DEDUP)
             self._emit("status", {"session_id": session_id, "status": ScanStatus.DEDUP.value})
 
-            deduped_endpoints = await self.deduplicator.dedup_endpoints(all_endpoints)
-            deduped_findings = await self.deduplicator.dedup_findings(all_findings)
+            all_eps = waf_endpoints
+            all_finds = waf_findings
+            for finds, eps in scanner_results.values():
+                all_eps.extend(eps)
+                all_finds.extend(finds)
+
+            scanner_results.clear()
+
+            deduped_endpoints = await self.deduplicator.dedup_endpoints(all_eps)
+            deduped_findings = await self.deduplicator.dedup_findings(all_finds)
+
+            all_eps.clear()
+            all_finds.clear()
 
             for ep in deduped_endpoints:
                 await self.db.add_endpoint(ep)

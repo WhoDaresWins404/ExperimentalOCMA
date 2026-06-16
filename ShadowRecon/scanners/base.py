@@ -71,7 +71,11 @@ class BaseScanner(ABC):
                 mounts=rotator.mounts(),
                 headers=headers,
                 timeout=Timeout(self.config.timeout),
-                limits=Limits(max_connections=self.config.threads, max_keepalive_connections=20),
+                limits=Limits(
+                    max_connections=self.config.threads,
+                    max_keepalive_connections=20,
+                    max_response_size=self.config.max_response_size,
+                ),
                 follow_redirects=self.config.follow_redirects,
             )
         return self._client
@@ -159,6 +163,8 @@ class BaseScanner(ABC):
         )
 
     async def cleanup(self):
+        self._results.clear()
+        self._endpoints.clear()
         if self._client:
             await self._client.aclose()
             self._client = None
