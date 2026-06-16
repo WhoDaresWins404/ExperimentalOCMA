@@ -133,6 +133,8 @@ class ScanEngine:
                 enriched = await enhancer.enrich_findings(deduped_findings, session_id)
                 result.findings = enriched
                 llm_summary_text = await enhancer.generate_summary(result)
+                if not llm_summary_text:
+                    print("[LLM] generate_summary returned empty")
                 for finding in enriched:
                     self._emit("finding", finding.model_dump())
                     await self.db.add_finding(finding)
@@ -152,7 +154,13 @@ class ScanEngine:
 
             summary = self._build_summary(result, duration, llm_summary_text)
             result.stats = summary.model_dump()
-            await self.session_mgr.update_stats(session_id, result.stats)
+            print(f"[LLM] summary length: {len(llm_summary_text)} chars")
+            if llm_summary_text:
+                print(f"[LLM] summary preview: {llm_summary_text[:200]}")
+            try:
+                await self.session_mgr.update_stats(session_id, result.stats)
+            except Exception as e:
+                print(f"[!] Failed to save stats: {e}")
 
             self._emit("complete", {
                 "session_id": session_id,
