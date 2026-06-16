@@ -239,6 +239,12 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         result = await engine.get_session_result(session_id)
         if not result:
             raise HTTPException(404, "Session not found")
+        session = result.get("session", {})
+        if isinstance(session.get("stats"), str):
+            try:
+                session["stats"] = json.loads(session["stats"])
+            except Exception:
+                session["stats"] = {}
         return result
 
     @app.get("/api/scan/{session_id}/report")

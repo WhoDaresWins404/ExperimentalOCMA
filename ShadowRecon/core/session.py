@@ -63,6 +63,16 @@ class ScanSessionManager:
                 if row:
                     row.error_log = json.dumps(err_list)
 
+    async def update_stats(self, session_id: str, stats: dict):
+        import json
+        async with self.db.session() as s:
+            from .database import ScanSessionRow, select
+            row = (await s.execute(
+                select(ScanSessionRow).where(ScanSessionRow.id == session_id)
+            )).scalar_one_or_none()
+            if row:
+                row.stats = json.dumps(stats)
+
     async def finalize(self, session_id: str, status: ScanStatus = ScanStatus.COMPLETED):
         await self.db.update_scan_status(session_id, status)
 

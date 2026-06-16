@@ -152,6 +152,7 @@ class ScanEngine:
 
             summary = self._build_summary(result, duration, llm_summary_text)
             result.stats = summary.model_dump()
+            await self.session_mgr.update_stats(session_id, result.stats)
 
             self._emit("complete", {
                 "session_id": session_id,

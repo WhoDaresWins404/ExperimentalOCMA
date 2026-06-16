@@ -41,6 +41,7 @@ class ScanSessionRow(Base):
     started_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     ended_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     error_log: Mapped[str] = mapped_column(Text, default="[]")
+    stats: Mapped[str] = mapped_column(Text, default="{}")
 
     campaign = relationship("CampaignRow", back_populates="sessions")
     endpoints = relationship("EndpointRow", back_populates="session", cascade="all, delete-orphan")
