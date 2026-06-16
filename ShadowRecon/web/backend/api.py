@@ -110,8 +110,9 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                         models = [m["name"] for m in data.get("models", [])]
                         result["reachable"] = True
                         result["models"] = models
-                        result["model_found"] = test_model in models
-                        if test_model not in models:
+                        model_lower = test_model.lower()
+                        result["model_found"] = any(model_lower in m.lower() for m in models)
+                        if not result["model_found"]:
                             result["error"] = f"Model '{test_model}' not found. Available: {', '.join(models) or 'none'}"
                     else:
                         result["error"] = f"HTTP {resp.status_code}"

@@ -30,9 +30,9 @@
       <button type="button" class="test-btn" :disabled="llmTesting" @click="testLlm">
         {{ llmTesting ? 'Testing...' : 'Test LLM' }}
       </button>
-      <span v-if="llmResult" :class="['llm-status', llmResult.reachable ? 'ok' : 'err']" :title="llmResult.error || ''">
-        {{ llmResult.reachable
-          ? `LLM OK (${llmResult.model_found ? llmResult.model : 'model not found'})`
+      <span v-if="llmResult" :class="['llm-status', llmResult.reachable ? (llmResult.model_found ? 'ok' : 'warn') : 'err']" :title="llmResult.error || ''">
+        {{ llmResult.reachable && llmResult.model_found
+          ? `LLM OK (${llmResult.model})`
           : (llmResult.error ? 'LLM: ' + llmResult.error : 'LLM unreachable') }}
       </span>
     </div>
@@ -140,5 +140,6 @@ select.form-input { cursor: pointer; }
 .test-btn:disabled { opacity: 0.5; cursor: wait; }
 .llm-status { font-size: 0.85em; font-weight: bold; }
 .llm-status.ok { color: #4caf50; }
+.llm-status.warn { color: #ff9800; }
 .llm-status.err { color: #f44336; }
 </style>
