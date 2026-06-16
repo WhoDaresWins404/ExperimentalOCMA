@@ -115,18 +115,21 @@ class WAFDetector(BaseScanner):
     async def _detect(self, target: ScanTarget) -> Optional[dict]:
         best_match = None
         best_score = 0
+        try:
+            normal_resp = await self.request("GET", target.url)
+            normal_fingerprint = {
+                "status": normal_resp.status_code,
+                "headers": dict(normal_resp.headers),
+                "body_len": len(normal_resp.text),
+            }
+        except Exception:
+            return None
+
         client = await self.get_client()
-        base_headers = {"User-Agent": "Mozilla/5.0"}
-        normal_resp = await client.get(target.url, headers=base_headers, timeout=10)
-        normal_fingerprint = {
-            "status": normal_resp.status_code,
-            "headers": dict(normal_resp.headers),
-            "body_len": len(normal_resp.text),
-        }
         for name, payload in PROBE_PAYLOADS:
             try:
                 test_url = f"{target.url.rstrip('/')}/?q={payload}"
-                resp = await client.get(test_url, headers=base_headers, timeout=10)
+                resp = await client.get(test_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
                 for sig in self.signatures:
                     score = self._match_signature(sig, normal_fingerprint, resp)
                     if score > best_score:
