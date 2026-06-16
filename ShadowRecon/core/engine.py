@@ -65,13 +65,18 @@ class ScanEngine:
         campaign_id: str,
         target: str,
         config_override: dict = None,
+        session_id: str = None,
     ) -> ScanResult:
         self._cancelled = False
         config_dict = self.config.model_dump()
         if config_override:
             config_dict.update(config_override)
 
-        session = await self.session_mgr.create(campaign_id, target, config_dict)
+        if session_id:
+            session = ScanSession(id=session_id, campaign_id=campaign_id, target=target, config_snapshot=config_dict)
+            await self.db.create_scan_session(session)
+        else:
+            session = await self.session_mgr.create(campaign_id, target, config_dict)
         session_id = session.id
 
         result = ScanResult(session_id=session_id, target=target, status=ScanStatus.PENDING)

@@ -53,9 +53,15 @@ onMounted(async () => {
 })
 
 async function handleStartScan(params) {
-  const result = await store.startScan(params)
-  campaign.value = await store.getCampaign(effectiveId)
-  router.push(`/scan/${result.session_id || ''}`)
+  try {
+    const result = await store.startScan({ ...params, campaign_name: campaign.value?.name || params.campaign_name })
+    campaign.value = await store.getCampaign(effectiveId)
+    if (result.session_id) {
+      router.push(`/scan/${result.session_id}`)
+    }
+  } catch (e) {
+    console.error('Failed to start scan:', e)
+  }
 }
 </script>
 

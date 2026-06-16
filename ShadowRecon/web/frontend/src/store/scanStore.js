@@ -15,8 +15,12 @@ export const useScanStore = defineStore('scan', () => {
   const connected = ref(false)
 
   async function fetchCampaigns() {
-    const { data } = await axios.get(`${API}/campaigns`)
-    campaigns.value = data
+    try {
+      const { data } = await axios.get(`${API}/campaigns`)
+      campaigns.value = data
+    } catch (e) {
+      console.error('Failed to fetch campaigns:', e)
+    }
   }
 
   async function getCampaign(id) {
@@ -25,13 +29,26 @@ export const useScanStore = defineStore('scan', () => {
   }
 
   async function startScan(params) {
-    const { data } = await axios.post(`${API}/scan`, params)
+    const { data } = await axios.post(`${API}/scan`, {
+      url: params.url,
+      campaign_name: params.campaign_name || 'default',
+      campaign_description: params.campaign_description || '',
+      threads: params.threads || 25,
+      timeout: params.timeout || 30,
+      detection_mode: params.detection_mode || 'detect',
+      enable_proxy: params.enable_proxy || false,
+      enable_llm: params.enable_llm || false,
+    })
     return data
   }
 
   async function getScanStatus(sessionId) {
-    const { data } = await axios.get(`${API}/scan/${sessionId}/status`)
-    return data
+    try {
+      const { data } = await axios.get(`${API}/scan/${sessionId}/status`)
+      return data
+    } catch (e) {
+      return null
+    }
   }
 
   async function getScanResults(sessionId) {
@@ -80,19 +97,19 @@ export const useScanStore = defineStore('scan', () => {
         currentSession.value = data.summary
         break
       case 'error':
-        scanStatus.value = 'error'
+        scanStatus.value = 'failed'
         break
       case 'cancelled':
         scanStatus.value = 'cancelled'
-        break
-      case 'scanner_start':
-      case 'scanner_done':
         break
     }
   }
 
   function disconnectWebSocket() {
-    if (ws.value) ws.value.close()
+    if (ws.value) {
+      ws.value.onclose = null
+      ws.value.close()
+    }
     ws.value = null
     connected.value = false
   }

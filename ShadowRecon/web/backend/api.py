@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from core.config import ScanConfig
 from core.engine import ScanEngine
-from core.models import ScanStatus, ScanSummary
+from core.models import ScanStatus, ScanSummary, ScanSession
 from mapping.mapper import Mapper
 from reporting.report_generator import ReportGenerator
 from exporters.training_data import TrainingDataExporter
@@ -125,51 +125,52 @@ def create_app(config: ScanConfig = None) -> FastAPI:
             req.campaign_description,
         )
 
+        session = await engine.session_mgr.create(
+            campaign.id, req.url, config_override
+        )
+
         async def progress_callback(event: str, data: dict):
-            session_id = data.get("session_id", "")
-            if session_id in websocket_clients:
+            if session.id in websocket_clients:
                 message = json.dumps({"event": event, "data": data}, default=str)
                 dead = []
-                for ws in websocket_clients[session_id]:
+                for ws in websocket_clients[session.id]:
                     try:
                         await ws.send_text(message)
                     except Exception:
                         dead.append(ws)
                 for ws in dead:
-                    websocket_clients[session_id].remove(ws)
+                    websocket_clients[session.id].remove(ws)
 
         engine.on_progress(progress_callback)
 
-        task = asyncio.create_task(engine.run_scan(campaign.id, req.url, config_override))
-        session_id = None
-
         async def wrapped_scan():
-            nonlocal session_id
             try:
-                result = await task
-                session_id = result.session_id
-                mapper = Mapper(session_id)
+                result = await engine.run_scan(
+                    campaign.id, req.url, config_override, session_id=session.id
+                )
+                mapper = Mapper(session.id)
                 mapper.process_results(result.endpoints, result.findings, result.target)
-                graph = mapper.get_graph_json()
-
                 summary = result.stats
-                report_paths = report_gen.generate_all(result, ScanSummary(**summary) if isinstance(summary, dict) else summary)
+                report_gen.generate_all(result, ScanSummary(**summary) if isinstance(summary, dict) else summary)
 
                 if config.llm.enabled:
                     from llm.enhancer import LLMEnhancer
                     enhancer = LLMEnhancer(config)
-                    llm_summary = await enhancer.generate_summary(result)
-                    if llm_summary:
-                        summary["llm_summary"] = llm_summary
                     pairs = await enhancer.generate_training_pairs(result.findings)
                     if pairs:
-                        training_path = training_exporter.export_jsonl(pairs, session_id)
-                return result
+                        training_exporter.export_jsonl(pairs, session.id)
             except Exception as e:
-                pass
+                await engine.session_mgr.add_error(session.id, str(e))
+                await engine.session_mgr.finalize(session.id, ScanStatus.FAILED)
+                if session.id in websocket_clients:
+                    for ws in websocket_clients[session.id]:
+                        try:
+                            await ws.send_text(json.dumps({"event": "error", "data": {"error": str(e)}}))
+                        except Exception:
+                            pass
 
         background_tasks.add_task(wrapped_scan)
-        return {"status": "started", "campaign_id": campaign.id}
+        return {"status": "started", "campaign_id": campaign.id, "session_id": session.id}
 
     @app.get("/api/scan/{session_id}/status")
     async def get_scan_status(session_id: str):
