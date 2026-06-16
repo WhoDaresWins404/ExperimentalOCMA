@@ -101,7 +101,10 @@ class OpenAIProvider(LLMProvider):
         try:
             response = await self._request(prompt)
             parsed = await self._parse_json_response(response)
-            return parsed.get("executive_summary", response[:1000])
+            raw = parsed.get("executive_summary", response[:1000])
+            if isinstance(raw, dict):
+                return raw.get("content") or raw.get("text") or raw.get("summary") or json.dumps(raw)
+            return str(raw)
         except LLMProviderError:
             return "LLM summary unavailable."
 
