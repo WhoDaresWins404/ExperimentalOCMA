@@ -73,11 +73,10 @@ class ScanEngine:
             config_dict.update(config_override)
 
         if session_id:
-            session = ScanSession(id=session_id, campaign_id=campaign_id, target=target, config_snapshot=config_dict)
-            await self.db.create_scan_session(session)
+            await self.session_mgr.update_status(session_id, ScanStatus.PENDING)
         else:
             session = await self.session_mgr.create(campaign_id, target, config_dict)
-        session_id = session.id
+            session_id = session.id
 
         result = ScanResult(session_id=session_id, target=target, status=ScanStatus.PENDING)
         result.started_at = datetime.utcnow()

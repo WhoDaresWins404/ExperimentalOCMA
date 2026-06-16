@@ -160,7 +160,10 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                     if pairs:
                         training_exporter.export_jsonl(pairs, session.id)
             except Exception as e:
-                await engine.session_mgr.add_error(session.id, str(e))
+                import traceback
+                tb = traceback.format_exc()
+                print(f"[!] Scan failed: {e}\n{tb}")
+                await engine.session_mgr.add_error(session.id, f"{e}\n{tb}")
                 await engine.session_mgr.finalize(session.id, ScanStatus.FAILED)
                 if session.id in websocket_clients:
                     for ws in websocket_clients[session.id]:
@@ -177,7 +180,7 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         session = await engine.session_mgr.get(session_id)
         if not session:
             raise HTTPException(404, "Session not found")
-        return {"session_id": session_id, "status": session.get("status")}
+        return {"session_id": session_id, "status": session.get("status"), "error_log": json.loads(session.get("error_log", "[]"))}
 
     @app.get("/api/scan/{session_id}/results")
     async def get_scan_results(session_id: str):
