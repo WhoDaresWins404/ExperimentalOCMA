@@ -71,9 +71,15 @@ class ScanEngine:
         session_id: str = None,
     ) -> ScanResult:
         self._cancelled = False
-        config_dict = self.config.model_dump()
+        merged = self.config.model_dump()
         if config_override:
-            config_dict.update(config_override)
+            for key, value in config_override.items():
+                if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+                    merged[key].update(value)
+                else:
+                    merged[key] = value
+        scan_config = ScanConfig(**merged)
+        config_dict = merged
 
         if session_id:
             await self.session_mgr.update_status(session_id, ScanStatus.PENDING)
@@ -89,7 +95,7 @@ class ScanEngine:
             await self.session_mgr.update_status(session_id, ScanStatus.WAF_CHECK)
             self._emit("status", {"session_id": session_id, "status": ScanStatus.WAF_CHECK.value})
 
-            waf_findings, waf_endpoints = await self._run_waf_check(target, session_id)
+            waf_findings, waf_endpoints = await self._run_waf_check(target, session_id, scan_config)
 
             await self.session_mgr.update_status(session_id, ScanStatus.SCANNING)
             self._emit("status", {"session_id": session_id, "status": ScanStatus.SCANNING.value})
@@ -97,7 +103,7 @@ class ScanEngine:
             scan_target = ScanTarget(url=target)
 
             scanner_instances = ScannerRegistry.instantiate_all(
-                self.config, session_id, self._waf_state
+                scan_config, session_id, self._waf_state
             )
 
             scanner_results = await self._run_scanners(scan_target, scanner_instances, session_id)
@@ -125,16 +131,14 @@ class ScanEngine:
                 self._emit("endpoint", ep.model_dump())
 
             llm_summary_text = ""
-            if self.config.llm.enabled and deduped_findings:
+            if scan_config.llm.enabled and deduped_findings:
                 await self.session_mgr.update_status(session_id, ScanStatus.LLM_ENRICH)
                 self._emit("status", {"session_id": session_id, "status": ScanStatus.LLM_ENRICH.value})
                 from llm.enhancer import LLMEnhancer
-                enhancer = LLMEnhancer(self.config)
+                enhancer = LLMEnhancer(scan_config)
                 enriched = await enhancer.enrich_findings(deduped_findings, session_id)
                 result.findings = enriched
                 llm_summary_text = await enhancer.generate_summary(result)
-                if not llm_summary_text:
-                    print("[LLM] generate_summary returned empty")
                 for finding in enriched:
                     self._emit("finding", finding.model_dump())
                     await self.db.add_finding(finding)
@@ -154,13 +158,10 @@ class ScanEngine:
 
             summary = self._build_summary(result, duration, llm_summary_text)
             result.stats = summary.model_dump()
-            print(f"[LLM] summary length: {len(llm_summary_text)} chars")
-            if llm_summary_text:
-                print(f"[LLM] summary preview: {llm_summary_text[:200]}")
             try:
                 await self.session_mgr.update_stats(session_id, result.stats)
-            except Exception as e:
-                print(f"[!] Failed to save stats: {e}")
+            except Exception:
+                pass
 
             self._emit("complete", {
                 "session_id": session_id,
@@ -186,16 +187,16 @@ class ScanEngine:
 
         return result
 
-    async def _run_waf_check(self, target: str, session_id: str) -> tuple[list[Finding], list[Endpoint]]:
+    async def _run_waf_check(self, target: str, session_id: str, scan_config: ScanConfig = None) -> tuple[list[Finding], list[Endpoint]]:
         from scanners.waf_detector import WAFDetector
-        detector = WAFDetector(self.config, session_id)
+        detector = WAFDetector(scan_config or self.config, session_id)
         scan_target = ScanTarget(url=target)
         findings, endpoints = await detector.scan(scan_target)
         if detector.detected_waf:
             self._waf_state["waf_name"] = detector.detected_waf["name"]
             self._waf_state["confidence"] = detector.detected_waf.get("confidence", 0)
             self._waf_state["evasion_headers"] = detector.get_evasion_headers()
-            if self.config.evasion.auto_evasion:
+            if (scan_config or self.config).evasion.auto_evasion:
                 self._waf_state["active"] = True
         return findings, endpoints
 
