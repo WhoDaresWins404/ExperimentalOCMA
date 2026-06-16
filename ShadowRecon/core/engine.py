@@ -162,12 +162,15 @@ class ScanEngine:
             self._emit("cancelled", {"session_id": session_id})
 
         except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"[!] Scan engine error: {e}\n{tb}")
             result.status = ScanStatus.FAILED
             result.ended_at = datetime.utcnow()
-            result.errors.append(str(e))
-            await self.session_mgr.add_error(session_id, str(e))
+            result.errors.append(f"{e}\n{tb}")
+            await self.session_mgr.add_error(session_id, f"{e}\n{tb}")
             await self.session_mgr.finalize(session_id, ScanStatus.FAILED)
-            self._emit("error", {"session_id": session_id, "error": str(e)})
+            self._emit("error", {"session_id": session_id, "error": str(e), "traceback": tb})
 
         return result
 

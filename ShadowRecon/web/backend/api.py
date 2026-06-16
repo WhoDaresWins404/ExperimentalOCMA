@@ -161,6 +161,9 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                             pairs = await enhancer.generate_training_pairs(result.findings)
                             if pairs:
                                 training_exporter.export_jsonl(pairs, session.id)
+                elif result.status == ScanStatus.FAILED:
+                    for err in result.errors:
+                        print(f"[!] Scan failed: {err}")
             except Exception as e:
                 import traceback
                 tb = traceback.format_exc()
