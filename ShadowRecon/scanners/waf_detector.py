@@ -102,7 +102,7 @@ class WAFDetector(BaseScanner):
                 title=f"WAF Detected: {sig['name']}",
                 description=f"Web application firewall identified with {sig.get('confidence', 0)*100:.0f}% confidence. "
                             f"Fingerprint: {sig.get('fingerprint', 'N/A')}",
-                severity="none",
+                severity="info",
                 endpoint=ep,
                 evidence={"waf_name": sig["name"], "confidence": sig["confidence"],
                           "fingerprint": sig.get("fingerprint", "")},
@@ -119,7 +119,7 @@ class WAFDetector(BaseScanner):
                 finding = self.make_finding(
                     title=f"WAF Evasion: {', '.join(selected)}",
                     description=f"Selected {len(selected)} evasion techniques to bypass {sig['name']}",
-                    severity="none",
+                    severity="info",
                     evidence=evasion_evidence,
                     tags=["waf", "evasion"],
                 )
@@ -136,7 +136,7 @@ class WAFDetector(BaseScanner):
             finding = self.make_finding(
                 title="No WAF Detected",
                 description="No web application firewall fingerprint matched during initial probes.",
-                severity="none",
+                severity="info",
                 evidence={"probes_sent": len(PROBE_PAYLOADS), "signatures_checked": len(self.signatures)},
                 tags=["waf", "info"],
             )

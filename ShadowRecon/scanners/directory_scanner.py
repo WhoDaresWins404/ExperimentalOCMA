@@ -62,6 +62,10 @@ class DirectoryScanner(BaseScanner):
         base_url = target.url.rstrip("/")
         seen = set()
 
+        protected_dirs: set[str] = set()
+        git_403: set[str] = set()
+        backup_403: set[str] = set()
+
         for path in self.wordlist:
             url = f"{base_url}/{path.lstrip('/')}"
             if url in seen:
@@ -82,9 +86,60 @@ class DirectoryScanner(BaseScanner):
                     metadata={"path": path, "content_length": len(resp.text)},
                 )
                 endpoints.append(ep)
+
+                lower = path.lower()
+
+                if ".git" in lower and resp.status_code != 200:
+                    git_403.add(path)
+                    continue
+
+                if lower.endswith((".bak", ".old", "~", ".swp", ".save")) and resp.status_code != 200:
+                    backup_403.add(path)
+                    continue
+
+                if resp.status_code == 403:
+                    protected_dirs.add(path)
+                    continue
+
                 finding = self._analyze_finding(ep, path, resp)
                 if finding:
                     findings.append(finding)
+
+        if git_403:
+            sorted_paths = sorted(git_403)
+            findings.append(self.make_finding(
+                title=f"Git Resources Detected (Blocked): {len(git_403)} paths",
+                description=f"Server returned 403 for {len(git_403)} Git metadata paths: {', '.join(sorted_paths)}. "
+                            "Server is blocking access but paths are confirmed to exist.",
+                severity="medium",
+                endpoint=endpoints[0] if endpoints else None,
+                evidence={"paths": sorted_paths, "count": len(git_403)},
+                tags=["git", "enumeration", "restricted"],
+            ))
+
+        if backup_403:
+            sorted_paths = sorted(backup_403)
+            findings.append(self.make_finding(
+                title=f"Backup Files Detected (Blocked): {len(backup_403)} files",
+                description=f"Server returned 403 for {len(backup_403)} backup/old file paths: {', '.join(sorted_paths)}. "
+                            "Files exist but access is denied — may contain sensitive data if access controls fail.",
+                severity="medium",
+                endpoint=endpoints[0] if endpoints else None,
+                evidence={"paths": sorted_paths, "count": len(backup_403)},
+                tags=["backup", "enumeration", "restricted"],
+            ))
+
+        if protected_dirs:
+            sorted_paths = sorted(protected_dirs)
+            findings.append(self.make_finding(
+                title=f"Protected Resources Found: {len(protected_dirs)} paths",
+                description=f"{len(protected_dirs)} paths returned HTTP 403. These may contain sensitive resources: "
+                            f"{', '.join(sorted_paths)}.",
+                severity="medium",
+                endpoint=endpoints[0] if endpoints else None,
+                evidence={"paths": sorted_paths, "count": len(protected_dirs)},
+                tags=["restricted", "enumeration"],
+            ))
 
         return findings, endpoints
 
@@ -104,7 +159,7 @@ class DirectoryScanner(BaseScanner):
         lower = path.lower()
 
         if ".git" in lower:
-            if "config" in path and ("repositoryformatversion" in (resp.text or "")):
+            if resp.status_code == 200 and "config" in path and ("repositoryformatversion" in (resp.text or "")):
                 return self.make_finding(
                     title="Exposed .git Repository",
                     description=f".git directory exposed at {ep.url}. Full repository may be downloadable.",
@@ -112,13 +167,14 @@ class DirectoryScanner(BaseScanner):
                     evidence={"url": ep.url, "status": resp.status_code, "size": len(resp.text or "")},
                     tags=["git", "exposure", "scm"],
                 )
-            return self.make_finding(
-                title=f".git Resource Accessible: {path}",
-                description=f"Git resource accessible at {ep.url} (HTTP {resp.status_code})",
-                severity="high", endpoint=ep,
-                evidence={"path": path},
-                tags=["git", "exposure"],
-            )
+            if resp.status_code == 200:
+                return self.make_finding(
+                    title=f".git Resource Accessible: {path}",
+                    description=f"Git resource accessible at {ep.url} (HTTP {resp.status_code})",
+                    severity="high", endpoint=ep,
+                    evidence={"path": path, "status": resp.status_code},
+                    tags=["git", "exposure"],
+                )
 
         if ".env" in lower and resp.status_code == 200:
             return self.make_finding(
@@ -129,7 +185,7 @@ class DirectoryScanner(BaseScanner):
                 tags=["env", "exposure", "secrets"],
             )
 
-        if lower.endswith((".bak", ".old", "~", ".swp", ".save")):
+        if lower.endswith((".bak", ".old", "~", ".swp", ".save")) and resp.status_code == 200:
             return self.make_finding(
                 title=f"Backup File Exposed: {path}",
                 description=f"Backup/old version of file accessible at {ep.url} (HTTP {resp.status_code})",
@@ -163,15 +219,6 @@ class DirectoryScanner(BaseScanner):
                 severity="critical", endpoint=ep,
                 evidence={"url": ep.url},
                 tags=["phpinfo", "exposure", "information_disclosure"],
-            )
-
-        if resp.status_code == 403:
-            return self.make_finding(
-                title=f"Protected Directory: {path}",
-                description=f"Directory/Path returns 403 at {ep.url}. May contain sensitive resources.",
-                severity="medium", endpoint=ep,
-                evidence={"path": path, "status": 403},
-                tags=["restricted", "enumeration"],
             )
 
         if resp.status_code in (301, 302) and path != "":

@@ -69,7 +69,7 @@ Please provide:
 Respond in JSON format with keys: natural_description, impact_analysis, suggested_cvss_vector, remediation_steps (array), risk_context.
 """
 
-SCAN_SUMMARY_PROMPT = """You are a senior cybersecurity analyst. Analyze the following scan results and produce a detailed technical report.
+SCAN_SUMMARY_PROMPT = """You are a senior penetration tester. Analyze the following scan results and produce a technically deep exploitation-oriented report. Be specific about endpoints, tools, and exploitation techniques.
 
 TARGET: {target}
 SCAN DURATION: {duration_seconds}s
@@ -92,12 +92,22 @@ ENDPOINT TYPES FOUND:
 FINDINGS DETAILED LIST:
 {finding_lines}
 
-Please provide:
-1. **Executive Summary**: 2-3 paragraph overview suitable for non-technical stakeholders. MUST reference actual findings by name and severity — do NOT say "no vulnerabilities" unless ALL counts are truly zero.
-2. **Critical & High Findings Analysis**: Detail the most urgent issues, their CVSS scores, affected endpoints, and real-world exploitability.
-3. **Medium Findings Analysis**: Summarize medium-severity issues that should be addressed in the near term.
-4. **Attack Narrative**: Describe how a real attacker could chain these findings together to compromise the target.
-5. **Recommended Actions**: Top 5 prioritized remediation actions, ordered by impact.
+Structure your response exactly as follows:
+
+## Executive Summary
+2-3 paragraph overview. MUST reference actual findings by name and severity and endpoint URLs. Do NOT say "no vulnerabilities" unless all severity counts are truly zero.
+
+## Critical & High Findings
+For each critical/high finding: endpoint URL, CVSS, exploit technique (e.g., "use curl to download .git/config at /foo"), real-world impact, recommended tooling (e.g., git-dumper, sqlmap, ffuf).
+
+## Medium Findings
+Summarize medium-severity findings. Recommend which should be prioritized and why.
+
+## Attack Narrative
+Step-by-step chain showing how an attacker could combine these findings into a full compromise. Be specific — reference exact endpoints and expected outcomes. Example: "1. Download .git repository via git-dumper → 2. Extract DB credentials from config → 3. Access admin panel at /admin → ..."
+
+## Recommended Actions
+Top 5 prioritized remediation steps. For each: what to fix, why, and how (specific config changes, code fixes, or WAF rules).
 
 Respond in JSON format with keys: executive_summary, critical_findings, medium_findings, attack_narrative, recommended_actions.
 """

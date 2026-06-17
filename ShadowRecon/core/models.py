@@ -19,6 +19,7 @@ class ScanStatus(str, Enum):
 
 class FindingSeverity(str, Enum):
     NONE = "none"
+    INFO = "info"
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"

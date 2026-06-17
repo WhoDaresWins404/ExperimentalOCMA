@@ -254,7 +254,7 @@ class ScanEngine:
             by_type[t] = by_type.get(t, 0) + 1
 
         by_scanner = {}
-        severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "none": 0}
+        severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0, "none": 0}
         for f in result.findings:
             by_scanner[f.scanner_name] = by_scanner.get(f.scanner_name, 0) + 1
             sev = f.severity.value if hasattr(f.severity, "value") else str(f.severity)

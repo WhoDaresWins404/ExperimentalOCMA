@@ -108,10 +108,38 @@ class OllamaProvider(LLMProvider):
         try:
             response = await self._request(prompt)
             parsed = await self._parse_json_response(response)
-            raw = parsed.get("executive_summary", response[:1000])
-            if isinstance(raw, dict):
-                return raw.get("content") or raw.get("text") or raw.get("summary") or json.dumps(raw)
-            return str(raw)
+
+            def _extract_text(v):
+                if isinstance(v, dict):
+                    return v.get("content") or v.get("text") or v.get("summary") or json.dumps(v)
+                return str(v) if v else ""
+
+            sections = {
+                "executive_summary": _extract_text(parsed.get("executive_summary", "")),
+                "critical_findings": _extract_text(parsed.get("critical_findings", "")),
+                "medium_findings": _extract_text(parsed.get("medium_findings", "")),
+                "attack_narrative": _extract_text(parsed.get("attack_narrative", "")),
+                "recommended_actions": _extract_text(parsed.get("recommended_actions", "")),
+            }
+
+            parts = []
+            if sections["executive_summary"]:
+                parts.append("=== EXECUTIVE SUMMARY ===")
+                parts.append(sections["executive_summary"])
+            if sections["critical_findings"]:
+                parts.append("\n=== CRITICAL & HIGH FINDINGS ===")
+                parts.append(sections["critical_findings"])
+            if sections["medium_findings"]:
+                parts.append("\n=== MEDIUM FINDINGS ===")
+                parts.append(sections["medium_findings"])
+            if sections["attack_narrative"]:
+                parts.append("\n=== ATTACK NARRATIVE ===")
+                parts.append(sections["attack_narrative"])
+            if sections["recommended_actions"]:
+                parts.append("\n=== RECOMMENDED ACTIONS ===")
+                parts.append(sections["recommended_actions"])
+
+            return "\n\n".join(parts) if parts else response[:1000]
         except LLMProviderError:
             return "LLM summary unavailable."
 
