@@ -106,7 +106,13 @@ class ScanEngine:
                 scan_config, session_id, self._waf_state
             )
 
-            scanner_results = await self._run_scanners(scan_target, scanner_instances, session_id)
+            if scan_config.scan_mode == "waf_only":
+                scanner_instances.clear()
+                scanner_results: dict = {}
+            else:
+                scanner_results = await self._run_scanners(
+                    scan_target, scanner_instances, session_id, scan_config
+                )
             scanner_instances.clear()
 
             await self.session_mgr.update_status(session_id, ScanStatus.DEDUP)
@@ -206,10 +212,16 @@ class ScanEngine:
         target: ScanTarget,
         scanners: dict[str, BaseScanner],
         session_id: str,
+        scan_config: ScanConfig = None,
     ) -> dict[str, tuple[list[Finding], list[Endpoint]]]:
         results = {}
 
-        scanner_order = ["api_scanner", "directory_scanner", "misconfig_scanner", "anomaly_detector"]
+        cfg = scan_config or self.config
+        mode = cfg.scan_mode
+        if mode == "light":
+            scanner_order = ["directory_scanner", "misconfig_scanner"]
+        else:
+            scanner_order = ["api_scanner", "directory_scanner", "misconfig_scanner", "anomaly_detector"]
 
         for name in scanner_order:
             if self._cancelled:

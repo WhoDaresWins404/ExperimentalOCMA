@@ -47,12 +47,30 @@
         <input v-model.number="form.timeout" type="number" min="5" max="120" class="form-input" />
       </div>
       <div class="form-group small">
-        <label>Mode</label>
+        <label>Detection Mode</label>
         <select v-model="form.detection_mode" class="form-input">
           <option value="detect">Detection</option>
           <option value="confirm">Confirmation</option>
         </select>
       </div>
+    </div>
+
+    <div class="form-row options-row">
+      <label class="radio-label">
+        <input type="radio" v-model="form.scan_mode" value="full" />
+        <span class="radio-title">Full Scan</span>
+        <span class="radio-desc">All scanners, maximum coverage</span>
+      </label>
+      <label class="radio-label">
+        <input type="radio" v-model="form.scan_mode" value="light" />
+        <span class="radio-title">Light Scan</span>
+        <span class="radio-desc">Directory + misconfig scanners only</span>
+      </label>
+      <label class="radio-label">
+        <input type="radio" v-model="form.scan_mode" value="waf_only" />
+        <span class="radio-title">WAF Only</span>
+        <span class="radio-desc">Detect WAF, skip all other scans</span>
+      </label>
     </div>
 
     <button type="submit" class="submit-btn" :disabled="submitting">
@@ -92,6 +110,7 @@ const form = reactive({
   campaign_description: '',
   threads: 25,
   timeout: 30,
+  scan_mode: 'full',
   detection_mode: 'detect',
   enable_proxy: false,
   enable_llm: false,
@@ -120,9 +139,19 @@ async function handleSubmit() {
 }
 .form-input:focus { border-color: #00e5ff; }
 select.form-input { cursor: pointer; }
-.options-row { display: flex; gap: 20px; align-items: center; }
+.options-row { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
 .checkbox-label { display: flex; align-items: center; gap: 8px; color: #8899aa; cursor: pointer; }
 .checkbox-label input[type="checkbox"] { accent-color: #00e5ff; width: 16px; height: 16px; }
+.radio-label {
+  display: flex; flex-direction: column; gap: 2px;
+  background: #0a0e17; border: 1px solid #1e3a5f;
+  border-radius: 6px; padding: 8px 14px; cursor: pointer;
+  transition: all 0.2s; min-width: 140px;
+}
+.radio-label:hover { border-color: #00e5ff; }
+.radio-label input[type="radio"] { accent-color: #00e5ff; margin-bottom: 4px; }
+.radio-title { font-weight: bold; color: #e0e0e0; font-size: 0.9em; }
+.radio-desc { font-size: 0.75em; color: #667788; }
 .submit-btn {
   background: #00e5ff; color: #0a0e17; border: none;
   padding: 12px 30px; border-radius: 5px; font-weight: bold;

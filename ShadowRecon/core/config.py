@@ -57,6 +57,7 @@ class ScanConfig(BaseModel):
     timeout: int = 30
     max_scan_time: int = 3600
     max_response_size: int = 1_048_576
+    scan_mode: Literal["full", "light", "waf_only"] = "full"
     detection_mode: Literal["detect", "confirm"] = "detect"
     follow_redirects: bool = True
     max_redirects: int = 5

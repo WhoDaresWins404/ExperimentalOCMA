@@ -41,6 +41,8 @@ Examples:
     parser.add_argument("--threads", type=int, default=25, help="Number of concurrent threads")
     parser.add_argument("--timeout", type=int, default=30, help="Request timeout in seconds")
     parser.add_argument("--llm", action="store_true", help="Enable LLM enrichment (requires Ollama)")
+    parser.add_argument("--scan-mode", type=str, default="full", choices=["full", "light", "waf_only"],
+                        help="Scan mode: full (all scanners), light (dir+misconfig), waf_only")
     parser.add_argument("--confirm", action="store_true", help="Detection mode (default) or confirmation mode")
     parser.add_argument("--proxy", action="store_true", help="Enable proxy chain")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Web server host")
@@ -53,6 +55,7 @@ async def cli_scan(args):
         targets=[args.url] if args.url else [],
         threads=args.threads,
         timeout=args.timeout,
+        scan_mode=args.scan_mode,
         detection_mode="confirm" if args.confirm else "detect",
         proxy={"enabled": args.proxy},
         llm={"enabled": args.llm},
@@ -60,7 +63,7 @@ async def cli_scan(args):
 
     print(f"[*] ShadowRecon — Scanning {args.url}")
     print(f"[*] Campaign: {args.campaign}")
-    print(f"[*] Threads: {args.threads} | Mode: {config.detection_mode}")
+    print(f"[*] Threads: {args.threads} | Mode: {config.detection_mode} | Scan: {config.scan_mode}")
     if args.llm:
         print(f"[*] LLM enrichment: enabled ({config.llm.model_name} @ {config.llm.ollama_host})")
     print()

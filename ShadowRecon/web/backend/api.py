@@ -26,6 +26,7 @@ class ScanRequest(BaseModel):
     campaign_description: str = ""
     threads: int = 25
     timeout: int = 30
+    scan_mode: str = "full"
     detection_mode: str = "detect"
     enable_proxy: bool = False
     enable_llm: bool = False
@@ -156,6 +157,7 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         config_override = {
             "threads": req.threads,
             "timeout": req.timeout,
+            "scan_mode": req.scan_mode,
             "detection_mode": req.detection_mode,
             "proxy": {"enabled": req.enable_proxy},
             "llm": {"enabled": req.enable_llm},
