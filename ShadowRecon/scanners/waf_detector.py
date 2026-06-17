@@ -143,20 +143,32 @@ class WAFDetector(BaseScanner):
             findings.append(finding)
         return findings, endpoints
 
+    def _normalize_url(self, raw: str) -> str:
+        raw = raw.strip()
+        if not raw.startswith(("http://", "https://")):
+            raw = "https://" + raw
+        return raw
+
     async def _detect(self, target: ScanTarget) -> Optional[dict]:
+        raw_url = self._normalize_url(target.url)
+        print(f"[WAF] Starting detection against: {raw_url}")
         best_match = None
         best_score = 0
         normal_fingerprint = None
         normal_resp = None
         try:
-            normal_resp = await self.request("GET", target.url)
+            normal_resp = await self.request("GET", raw_url)
+            print(f"[WAF] Passive GET: status={normal_resp.status_code}, "
+                  f"server={normal_resp.headers.get('server','?')}, "
+                  f"cf-ray={'yes' if normal_resp.headers.get('cf-ray') else 'no'}, "
+                  f"set-cookie={normal_resp.headers.get('set-cookie','')[:60]}")
             normal_fingerprint = {
                 "status": normal_resp.status_code,
                 "headers": dict(normal_resp.headers),
                 "body_len": len(normal_resp.text),
             }
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[WAF] Passive GET failed: {e}")
 
         if normal_resp and normal_fingerprint:
             for sig in self.signatures:
@@ -164,65 +176,64 @@ class WAFDetector(BaseScanner):
                 if score > best_score:
                     best_score = score
                     best_match = sig
+            print(f"[WAF] Passive best: {best_match['name'] if best_match else 'none'} "
+                  f"score={best_score:.2f} threshold={PASSIVE_MIN_CONFIDENCE}")
 
             if best_score >= PASSIVE_MIN_CONFIDENCE:
-                best_match["confidence"] = best_score
-                return best_match
+                match = dict(best_match)
+                match["confidence"] = best_score
+                print(f"[WAF] Detected via passive: {match['name']} ({best_score:.0%})")
+                return match
 
-        base_url = target.url.rstrip("/")
-        default_headers = {"User-Agent": "Mozilla/5.0"}
+        base_url = raw_url.rstrip("/")
 
-        for name, payload in PROBE_PAYLOADS:
+        def _check(name: str, resp):
+            nonlocal best_score, best_match
+            if resp is None:
+                return
+            for sig in self.signatures:
+                score = self._match_signature(sig, normal_fingerprint, resp)
+                if score > best_score:
+                    best_score = score
+                    best_match = sig
+
+        for probe_name, payload in PROBE_PAYLOADS:
             try:
                 test_url = f"{base_url}/?q={payload}"
                 resp = await self.request("GET", test_url)
-                for sig in self.signatures:
-                    score = self._match_signature(sig, normal_fingerprint, resp)
-                    if score > best_score:
-                        best_score = score
-                        best_match = sig
-            except Exception:
-                continue
+                _check(probe_name, resp)
+            except Exception as e:
+                print(f"[WAF] Query probe {probe_name} failed: {e}")
 
-        for name, payload in COOKIE_PROBE_PAYLOADS:
+        for probe_name, payload in COOKIE_PROBE_PAYLOADS:
             try:
                 resp = await self.request(
                     "GET", base_url,
                     headers={"Cookie": f"waf_test={payload}"},
                 )
-                for sig in self.signatures:
-                    score = self._match_signature(sig, normal_fingerprint, resp)
-                    if score > best_score:
-                        best_score = score
-                        best_match = sig
-            except Exception:
-                continue
+                _check(probe_name, resp)
+            except Exception as e:
+                print(f"[WAF] Cookie probe {probe_name} failed: {e}")
 
         for ua in SUSPICIOUS_USER_AGENTS:
             try:
                 resp = await self.request("GET", base_url, headers={"User-Agent": ua})
-                for sig in self.signatures:
-                    score = self._match_signature(sig, normal_fingerprint, resp)
-                    if score > best_score:
-                        best_score = score
-                        best_match = sig
-            except Exception:
-                continue
+                _check(f"ua_{ua[:10]}", resp)
+            except Exception as e:
+                print(f"[WAF] UA probe {ua[:20]} failed: {e}")
 
         for path in ACL_BYPASS_PATHS:
             try:
                 resp = await self.request("GET", f"{base_url}{path}")
-                for sig in self.signatures:
-                    score = self._match_signature(sig, normal_fingerprint, resp)
-                    if score > best_score:
-                        best_score = score
-                        best_match = sig
-            except Exception:
-                continue
+                _check(f"acl_{path}", resp)
+            except Exception as e:
+                print(f"[WAF] ACL probe {path} failed: {e}")
 
+        print(f"[WAF] Final best: {best_match['name'] if best_match else 'none'} score={best_score:.2f} threshold={DETECT_MIN_CONFIDENCE}")
         if best_match and best_score >= DETECT_MIN_CONFIDENCE:
-            best_match["confidence"] = best_score
-            return best_match
+            match = dict(best_match)
+            match["confidence"] = best_score
+            return match
         return None
 
     def _match_signature(self, sig: dict, normal: dict, response) -> float:
