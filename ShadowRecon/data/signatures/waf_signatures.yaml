@@ -19,6 +19,7 @@ wafs:
         - "DDoS protection by"
         - "Cloudflare Ray ID:"
         - "cf-error-code"
+        - "cf-browser-verification"
       block_score: 0.7
 
   - name: ModSecurity
@@ -26,13 +27,20 @@ wafs:
     confidence: 0.85
     evasion: ["comment_injection", "unicode_normalization", "parameter_pollution"]
     checks:
-      status_codes: [403, 406, 500]
+      status_codes: [403, 406, 500, 501]
       headers:
-        x-powered-by: "Mod Security"
+        x-powered-by: "Mod Security|mod_security"
+        set-cookie: "mod_security"
+      cookies:
+        mod_security: "."
       body:
         - "ModSecurity"
         - "Not Acceptable"
         - "406 Not Acceptable"
+        - "ModSecurity: Access denied"
+        - "Transaction ID:"
+        - "odsecurity"
+        - "Access denied with code"
       block_score: 0.6
 
   - name: AWS WAF
@@ -44,10 +52,16 @@ wafs:
       headers:
         x-amzn-requestid: "."
         x-amzn-errortype: "."
+        x-amzn-trace-id: "."
+        set-cookie: "aws-waf-token"
+      cookies:
+        aws-waf-token: "."
       body:
         - "Request blocked"
         - "403 Forbidden"
         - "wAF"
+        - "AWS WAF"
+        - "AWS Web Application Firewall"
       block_score: 0.65
 
   - name: Akamai Ghost
@@ -55,13 +69,21 @@ wafs:
     confidence: 0.8
     evasion: ["url_encoding", "header_spoofing", "rate_spoofing"]
     checks:
-      status_codes: [403, 400]
+      status_codes: [403, 400, 401]
       headers:
         server: "AkamaiGHost"
         x-akamai-transformed: "."
+        x-akamai-request-id: "."
+        set-cookie: "ak_bmsc|_abck"
+      cookies:
+        ak_bmsc: "."
       body:
         - "Reference #"
         - "Akamai"
+        - "akamai"
+        - "Error Reference Number:"
+        - "AkamaiGHost"
+        - "Web Application Protector"
       block_score: 0.6
 
   - name: F5 BIG-IP ASM
@@ -69,14 +91,19 @@ wafs:
     confidence: 0.75
     evasion: ["case_switching", "comment_injection", "parameter_pollution"]
     checks:
-      status_codes: [403, 200]
+      status_codes: [403, 200, 500]
       headers:
         x-asm-version: "."
         x-waf-result: "."
+        x-request-id: "."
+        set-cookie: "TS[a-f0-9]{5,}"
       body:
         - "The requested URL was rejected"
         - "Support ID"
         - "F5"
+        - "Big-IP"
+        - "Security Policy"
+        - "Attack detected"
       block_score: 0.6
 
   - name: Imperva Incapsula
@@ -84,14 +111,18 @@ wafs:
     confidence: 0.8
     evasion: ["header_spoofing", "rate_spoofing", "unicode_normalization"]
     checks:
-      status_codes: [403, 509]
+      status_codes: [403, 509, 406]
       headers:
-        x-cdn: "Incapsula"
+        x-cdn: "Incapsula|imperva"
         x-iinfo: "."
+        set-cookie: "incap_ses_|visid_incap_"
       body:
         - "Incapsula"
         - "incapsula"
         - "Blocked because of Malicious Activity"
+        - "Imperva"
+        - "PerimeterX"
+        - "Powered by Imperva"
       block_score: 0.7
 
   - name: Sucuri
@@ -99,13 +130,19 @@ wafs:
     confidence: 0.7
     evasion: ["case_switching", "url_encoding", "comment_injection"]
     checks:
-      status_codes: [403, 404]
+      status_codes: [403, 404, 503]
       headers:
         x-sucuri-id: "."
         x-sucuri-cache: "."
+        set-cookie: "sucuri_cloudproxy"
+      cookies:
+        sucuri_cloudproxy: "."
       body:
         - "Sucuri WebSite Firewall"
         - "CloudProxy"
+        - "Sucuri"
+        - "sucuri.net"
+        - "Sucuri Firewall"
       block_score: 0.55
 
   - name: Barracuda WAF
@@ -113,12 +150,19 @@ wafs:
     confidence: 0.7
     evasion: ["case_switching", "parameter_pollution", "unicode_normalization"]
     checks:
-      status_codes: [403, 500]
+      status_codes: [403, 500, 501]
       headers:
-        barracuda_*: "."
+        barracuda: "."
+        x-barracuda: "."
+        set-cookie: "barra_cuda|barracuda"
+      cookies:
+        barra_cuda_session: "."
       body:
         - "Barracuda"
         - "WSG"
+        - "Barracuda Web Security"
+        - "Barracuda Web Application Firewall"
+        - "BLOCKED - Barracuda"
       block_score: 0.55
 
   - name: Fortinet FortiWeb
@@ -126,12 +170,16 @@ wafs:
     confidence: 0.65
     evasion: ["case_switching", "url_encoding", "header_spoofing"]
     checks:
-      status_codes: [403, 503]
+      status_codes: [403, 503, 500]
       headers:
         x-fortinet-waf: "."
+        set-cookie: "fortiweb|FORTIWAF"
       body:
         - "FortiWeb"
         - "Fortinet"
+        - "fortiwaf"
+        - "FortiGate"
+        - "Web Filter Block"
       block_score: 0.5
 
   - name: Radware AppWall
@@ -139,12 +187,17 @@ wafs:
     confidence: 0.65
     evasion: ["comment_injection", "double_encoding", "parameter_pollution"]
     checks:
-      status_codes: [403, 406]
+      status_codes: [403, 406, 302]
       headers:
         x-sl-compstate: "."
+        x-apsolute: "."
+        set-cookie: "radware|AppWall"
       body:
         - "Radware"
         - "AppWall"
+        - "Radware AppWall"
+        - "Radware WAF"
+        - "Security by Radware"
       block_score: 0.5
 
   - name: StackPath
@@ -152,12 +205,14 @@ wafs:
     confidence: 0.6
     evasion: ["header_spoofing", "rate_spoofing"]
     checks:
-      status_codes: [403, 503]
+      status_codes: [403, 503, 500]
       headers:
         server: "stackpath"
+        set-cookie: "stackpath"
       body:
         - "StackPath"
         - "Blocked by StackPath"
+        - "stackpath.com"
       block_score: 0.5
 
   - name: Comodo cWatch
@@ -165,12 +220,15 @@ wafs:
     confidence: 0.6
     evasion: ["case_switching", "url_encoding"]
     checks:
-      status_codes: [403, 406]
+      status_codes: [403, 406, 500]
       headers:
         x-cwaf: "."
+        set-cookie: "cwatch|cwaf"
       body:
         - "cWatch"
         - "Comodo"
+        - "Protected by Comodo"
+        - "Comodo Web Security"
       block_score: 0.45
 
   - name: Wordfence
@@ -178,13 +236,15 @@ wafs:
     confidence: 0.65
     evasion: ["case_switching", "comment_injection", "parameter_pollution"]
     checks:
-      status_codes: [403, 503]
+      status_codes: [403, 503, 500]
       headers:
         x-wordfence: "."
+        set-cookie: "wf_"
       body:
         - "Wordfence"
         - "blocked by Wordfence"
         - "Generated by Wordfence"
+        - "This site is protected by Wordfence"
       block_score: 0.55
 
   - name: SafeLine WAF
@@ -192,11 +252,14 @@ wafs:
     confidence: 0.5
     evasion: ["case_switching", "url_encoding", "comment_injection"]
     checks:
-      status_codes: [403, 444]
-      headers: {}
+      status_codes: [403, 444, 406]
+      headers:
+        x-safeline: "."
+        set-cookie: "safeline"
       body:
         - "SafeLine"
         - "chaitin"
+        - "SafeLine WAF"
       block_score: 0.45
 
   - name: Generic WAF
@@ -206,11 +269,13 @@ wafs:
     checks:
       status_codes: [403, 406, 429, 503]
       headers:
-        server: "waf|cloudflare|akamai"
+        server: "waf|cloudflare|akamai|stackpath"
       body:
         - "blocked"
         - "denied"
         - "forbidden"
         - "waf"
         - "security"
+        - "malicious"
+        - "access denied"
       block_score: 0.4
