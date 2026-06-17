@@ -123,12 +123,17 @@ class EndpointGraph:
             self.link_endpoint_to_host(ep_node, host_node)
         for finding in findings:
             finding_node = self.add_finding_node(finding)
+            linked = False
             if finding.endpoint_id:
                 for nid, node in self._nodes.items():
                     if (node.metadata.get("status_code") is not None and
                         node.metadata.get("discovered_by") == finding.scanner_name):
                         self.link_finding_to_endpoint(finding_node, node)
+                        linked = True
                         break
+            if not linked:
+                self.link_finding_to_endpoint(finding_node, host_node)
+                finding_node.metadata["orphan"] = True
         related = self._find_related_endpoints(endpoints)
         for ep_a, ep_b, rel_type, label in related:
             a_id = next((n.id for n in self._nodes.values() if n.url == ep_a.url), None)
