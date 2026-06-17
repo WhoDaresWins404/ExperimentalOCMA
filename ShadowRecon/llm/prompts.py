@@ -49,6 +49,52 @@ def format_findings_for_summary(result) -> dict:
     }
 
 
+def format_llm_section(value) -> str:
+    if not value:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list):
+        parts = []
+        for item in value:
+            if isinstance(item, dict):
+                lines = []
+                for k, v in item.items():
+                    k_clean = k.replace("_", " ").title()
+                    if isinstance(v, list):
+                        v = ", ".join(str(x) for x in v)
+                    lines.append(f"  {k_clean}: {v}")
+                parts.append("\n".join(lines))
+            else:
+                parts.append(f"  - {item}")
+        return "\n".join(parts)
+    if isinstance(value, dict):
+        if "findings" in value and isinstance(value["findings"], list):
+            return format_llm_section(value["findings"])
+        if "steps" in value and isinstance(value["steps"], list):
+            return format_llm_section(value["steps"])
+        if "actions" in value and isinstance(value["actions"], list):
+            return format_llm_section(value["actions"])
+        lines = []
+        for k, v in value.items():
+            k_clean = k.replace("_", " ").title()
+            if isinstance(v, list):
+                lines.append(f"{k_clean}:")
+                for item in v:
+                    if isinstance(item, dict):
+                        lines.append(f"  - {item.get('step', item.get('what_to_fix', item.get('description', str(item))))}")
+                    else:
+                        lines.append(f"  - {item}")
+            elif isinstance(v, dict):
+                lines.append(f"{k_clean}:")
+                for sk, sv in v.items():
+                    lines.append(f"  {sk}: {sv}")
+            else:
+                lines.append(f"{k_clean}: {v}")
+        return "\n".join(lines)
+    return str(value)
+
+
 FINDING_ENRICHMENT_PROMPT = """You are a senior cybersecurity analyst. Analyze the following finding from a security scan and provide a detailed assessment.
 
 FINDING:

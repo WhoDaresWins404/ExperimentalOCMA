@@ -189,11 +189,15 @@ function updateGraph() {
 
   if (simulation) simulation.stop()
 
+  const nodeCount = nodeData.length
+  const chargeStrength = Math.min(-200, -nodeCount * 5)
+  const collideRadius = Math.max(20, Math.min(50, 400 / Math.sqrt(nodeCount)))
+
   simulation = d3.forceSimulation(nodeData)
-    .force('link', d3.forceLink(linkData).id(d => d.id).distance(100))
-    .force('charge', d3.forceManyBody().strength(-200))
+    .force('link', d3.forceLink(linkData).id(d => d.id).distance(d => Math.max(60, 200 / Math.sqrt(nodeCount))))
+    .force('charge', d3.forceManyBody().strength(chargeStrength))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide(30))
+    .force('collision', d3.forceCollide(collideRadius))
 
   const link = g.selectAll('line')
     .data(linkData, d => `${d.source}-${d.target}`)
@@ -227,8 +231,8 @@ function updateGraph() {
       })
       .on('end', (event, d) => {
         if (!event.active) simulation.alphaTarget(0)
-        d.fx = null
-        d.fy = null
+        d.fx = d.x
+        d.fy = d.y
       })
     )
 

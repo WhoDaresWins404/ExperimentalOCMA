@@ -5,7 +5,7 @@ from typing import Optional
 import httpx
 
 from .base import LLMProvider, LLMProviderError
-from .prompts import FINDING_ENRICHMENT_PROMPT, SCAN_SUMMARY_PROMPT, TRAINING_PAIR_PROMPT, format_findings_for_summary
+from .prompts import FINDING_ENRICHMENT_PROMPT, SCAN_SUMMARY_PROMPT, TRAINING_PAIR_PROMPT, format_findings_for_summary, format_llm_section
 from core.config import LLMConfig
 from core.models import Finding, LLMAnalysis, ScanResult
 
@@ -116,17 +116,12 @@ class OllamaProvider(LLMProvider):
             response = await self._request(prompt)
             parsed = await self._parse_json_response(response)
 
-            def _extract_text(v):
-                if isinstance(v, dict):
-                    return v.get("content") or v.get("text") or v.get("summary") or json.dumps(v)
-                return str(v) if v else ""
-
             sections = {
-                "executive_summary": _extract_text(parsed.get("executive_summary", "")),
-                "critical_findings": _extract_text(parsed.get("critical_findings", "")),
-                "medium_findings": _extract_text(parsed.get("medium_findings", "")),
-                "attack_narrative": _extract_text(parsed.get("attack_narrative", "")),
-                "recommended_actions": _extract_text(parsed.get("recommended_actions", "")),
+                "executive_summary": format_llm_section(parsed.get("executive_summary", "")),
+                "critical_findings": format_llm_section(parsed.get("critical_findings", "")),
+                "medium_findings": format_llm_section(parsed.get("medium_findings", "")),
+                "attack_narrative": format_llm_section(parsed.get("attack_narrative", "")),
+                "recommended_actions": format_llm_section(parsed.get("recommended_actions", "")),
             }
 
             parts = []
