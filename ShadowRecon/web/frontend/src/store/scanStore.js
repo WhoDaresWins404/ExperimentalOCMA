@@ -35,6 +35,7 @@ export const useScanStore = defineStore('scan', () => {
       campaign_description: params.campaign_description || '',
       threads: params.threads || 25,
       timeout: params.timeout || 30,
+      scan_mode: params.scan_mode || 'full',
       detection_mode: params.detection_mode || 'detect',
       enable_proxy: params.enable_proxy || false,
       enable_llm: params.enable_llm || false,

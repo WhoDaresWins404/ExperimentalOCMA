@@ -107,6 +107,25 @@ async function pollOnce() {
         if (pollTimer) clearInterval(pollTimer)
       }
     }
+    if (store.scanStatus && store.scanStatus !== 'idle' && store.scanStatus !== 'pending') {
+      const data = await store.getScanResults(sessionId)
+      if (data && data.findings && data.findings.length) {
+        const existingIds = new Set(store.findings.map(f => f.id))
+        for (const f of data.findings) {
+          if (!existingIds.has(f.id)) {
+            store.findings.push(f)
+          }
+        }
+      }
+      if (data && data.endpoints && data.endpoints.length) {
+        const existingIds = new Set(store.endpoints.map(e => e.id))
+        for (const ep of data.endpoints) {
+          if (!existingIds.has(ep.id)) {
+            store.endpoints.push(ep)
+          }
+        }
+      }
+    }
     pollAttempts.value++
     wsError.value = false
   } catch (e) {
