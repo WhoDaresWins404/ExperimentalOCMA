@@ -85,11 +85,15 @@ class WAFDetector(BaseScanner):
             self.evasion_strategies = sig.get("evasion", [])
             selected = self._select_evasion()
             if selected:
+                evasion_evidence = {"techniques": selected}
+                evasion_results = await self._test_evasion(target, selected)
+                if evasion_results:
+                    evasion_evidence["results"] = evasion_results
                 finding = self.make_finding(
-                    title=f"Evasion Strategy: {', '.join(selected)}",
+                    title=f"WAF Evasion: {', '.join(selected)}",
                     description=f"Selected {len(selected)} evasion techniques to bypass {sig['name']}",
                     severity="none",
-                    evidence={"techniques": selected},
+                    evidence=evasion_evidence,
                     tags=["waf", "evasion"],
                 )
                 findings.append(finding)
@@ -170,6 +174,48 @@ class WAFDetector(BaseScanner):
         count = min(len(available), random.randint(1, 3))
         return random.sample(available, count)
 
+    async def _test_evasion(self, target: ScanTarget, strategies: list[str] = None) -> list[dict]:
+        active = strategies if strategies else self.evasion_strategies
+        if not active:
+            return []
+        results = []
+        client = await self.get_client()
+        for name, payload in PROBE_PAYLOADS:
+            try:
+                test_url = f"{target.url.rstrip('/')}/?q={payload}"
+                normal_resp = await client.get(test_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+                was_blocked = normal_resp.status_code in (403, 406, 429, 503)
+                if not was_blocked:
+                    continue
+                evaded_payload = self.apply_evasion(payload, strategies=active)
+                evaded_url = f"{target.url.rstrip('/')}/?q={evaded_payload}"
+                evaded_headers = {"User-Agent": "Mozilla/5.0"}
+                eh = self.get_evasion_headers()
+                if eh:
+                    evaded_headers.update(eh)
+                evaded_resp = await client.get(evaded_url, headers=evaded_headers, timeout=10)
+                if evaded_resp.status_code not in (403, 406, 429, 503):
+                    results.append({
+                        "probe": name,
+                        "original_payload": payload,
+                        "evaded_payload": evaded_payload,
+                        "original_status": normal_resp.status_code,
+                        "evaded_status": evaded_resp.status_code,
+                        "success": True,
+                    })
+                else:
+                    results.append({
+                        "probe": name,
+                        "original_payload": payload,
+                        "evaded_payload": evaded_payload,
+                        "original_status": normal_resp.status_code,
+                        "evaded_status": evaded_resp.status_code,
+                        "success": False,
+                    })
+            except Exception:
+                continue
+        return results
+
     def get_evasion_headers(self) -> dict:
         headers = {}
         if "rate_spoofing" in self.evasion_strategies:
@@ -180,10 +226,11 @@ class WAFDetector(BaseScanner):
             headers["Accept-Language"] = random.choice(["en-US", "de-DE", "fr-FR", "ja-JP"])
         return headers
 
-    def apply_evasion(self, payload: str) -> str:
-        if not self.evasion_strategies:
+    def apply_evasion(self, payload: str, strategies: list[str] = None) -> str:
+        active = strategies if strategies is not None else self.evasion_strategies
+        if not active:
             return payload
-        for strategy in self.evasion_strategies:
+        for strategy in active:
             if strategy in EVASION_TECHNIQUES:
                 payload = EVASION_TECHNIQUES[strategy](payload)
         return payload
