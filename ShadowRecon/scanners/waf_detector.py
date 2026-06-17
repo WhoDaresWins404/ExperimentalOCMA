@@ -12,6 +12,9 @@ from core.exceptions import WAFDetected
 
 WAF_SIGNATURES_PATH = Path(__file__).parent.parent / "data" / "signatures" / "waf_signatures.yaml"
 
+PASSIVE_MIN_CONFIDENCE = 0.4
+DETECT_MIN_CONFIDENCE = 0.25
+
 PROBE_PAYLOADS = [
     ("basic_xss", "<script>alert(1)</script>"),
     ("sqli", "' OR '1'='1"),
@@ -21,6 +24,30 @@ PROBE_PAYLOADS = [
     ("large_payload", "A" * 10000),
     ("null_byte", "%00"),
     ("method_override", "X-HTTP-Method-Override: PUT"),
+]
+
+COOKIE_PROBE_PAYLOADS = [
+    ("cookie_xss", "<script>alert(1)</script>"),
+    ("cookie_sqli", "' OR '1'='1"),
+    ("cookie_traversal", "../../etc/passwd"),
+    ("cookie_cmdi", "; cat /etc/passwd"),
+]
+
+SUSPICIOUS_USER_AGENTS = [
+    "nikto/2.1.5",
+    "sqlmap/1.7.12",
+    "Nmap Scripting Engine",
+    "curl/8.0.1",
+    "Mozilla/5.0 (compatible; MSIE 6.0; Windows NT 5.1)",
+    "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)",
+]
+
+ACL_BYPASS_PATHS = [
+    "/admin",
+    "/wp-admin",
+    "/../",
+    "/.%00/",
+    "/..;/",
 ]
 
 EVASION_TECHNIQUES = {
@@ -129,11 +156,24 @@ class WAFDetector(BaseScanner):
         except Exception:
             return None
 
+        for sig in self.signatures:
+            score = self._match_signature(sig, normal_fingerprint, normal_resp)
+            if score > best_score:
+                best_score = score
+                best_match = sig
+
+        if best_score >= PASSIVE_MIN_CONFIDENCE:
+            best_match["confidence"] = best_score
+            return best_match
+
         client = await self.get_client()
+        base_url = target.url.rstrip("/")
+        base_headers = {"User-Agent": "Mozilla/5.0"}
+
         for name, payload in PROBE_PAYLOADS:
             try:
-                test_url = f"{target.url.rstrip('/')}/?q={payload}"
-                resp = await client.get(test_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+                test_url = f"{base_url}/?q={payload}"
+                resp = await client.get(test_url, headers=base_headers, timeout=10)
                 for sig in self.signatures:
                     score = self._match_signature(sig, normal_fingerprint, resp)
                     if score > best_score:
@@ -141,9 +181,48 @@ class WAFDetector(BaseScanner):
                         best_match = sig
             except Exception:
                 continue
-        if best_match:
+
+        for name, payload in COOKIE_PROBE_PAYLOADS:
+            try:
+                resp = await client.get(
+                    base_url,
+                    headers={"User-Agent": "Mozilla/5.0", "Cookie": f"waf_test={payload}"},
+                    timeout=10,
+                )
+                for sig in self.signatures:
+                    score = self._match_signature(sig, normal_fingerprint, resp)
+                    if score > best_score:
+                        best_score = score
+                        best_match = sig
+            except Exception:
+                continue
+
+        for ua in SUSPICIOUS_USER_AGENTS:
+            try:
+                resp = await client.get(base_url, headers={"User-Agent": ua}, timeout=10)
+                for sig in self.signatures:
+                    score = self._match_signature(sig, normal_fingerprint, resp)
+                    if score > best_score:
+                        best_score = score
+                        best_match = sig
+            except Exception:
+                continue
+
+        for path in ACL_BYPASS_PATHS:
+            try:
+                resp = await client.get(f"{base_url}{path}", headers=base_headers, timeout=10)
+                for sig in self.signatures:
+                    score = self._match_signature(sig, normal_fingerprint, resp)
+                    if score > best_score:
+                        best_score = score
+                        best_match = sig
+            except Exception:
+                continue
+
+        if best_match and best_score >= DETECT_MIN_CONFIDENCE:
             best_match["confidence"] = best_score
-        return best_match
+            return best_match
+        return None
 
     def _match_signature(self, sig: dict, normal: dict, response) -> float:
         score = 0.0
@@ -151,15 +230,25 @@ class WAFDetector(BaseScanner):
         statuses = checks.get("status_codes", [])
         if response.status_code in statuses:
             score += 0.3
+
         headers_check = checks.get("headers", {})
         for h, pattern in headers_check.items():
             val = response.headers.get(h, "")
             if re.search(pattern, val, re.I):
                 score += 0.25
+
         body_patterns = checks.get("body", [])
+        text = response.text or ""
         for pattern in body_patterns:
-            if re.search(pattern, response.text, re.I):
+            if re.search(pattern, text, re.I):
                 score += 0.2
+
+        cookies = checks.get("cookies", {})
+        for cookie_name, pattern in cookies.items():
+            c_val = response.cookies.get(cookie_name, "")
+            if c_val and re.search(pattern, c_val, re.I):
+                score += 0.2
+
         block_score = checks.get("block_score", 0.5)
         if response.status_code in (403, 406, 429, 503) and normal["status"] == 200:
             score += 0.3

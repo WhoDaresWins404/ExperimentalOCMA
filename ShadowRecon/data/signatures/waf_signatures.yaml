@@ -2,16 +2,23 @@ wafs:
   - name: Cloudflare
     fingerprint: "Cloudflare"
     confidence: 0.9
-    evasion: ["case_switching", "url_encoding", "header_spoofing"]
+    evasion: ["case_switching", "url_encoding", "header_spoofing", "rate_spoofing"]
     checks:
-      status_codes: [403, 503]
+      status_codes: [403, 503, 429]
       headers:
         server: "cloudflare"
         cf-ray: "."
+        set-cookie: "__cfduid"
+      cookies:
+        __cfduid: "."
       body:
         - "Attention Required! \\| Cloudflare"
         - "Please complete the security check"
         - "Just a moment..."
+        - "Checking your browser"
+        - "DDoS protection by"
+        - "Cloudflare Ray ID:"
+        - "cf-error-code"
       block_score: 0.7
 
   - name: ModSecurity
