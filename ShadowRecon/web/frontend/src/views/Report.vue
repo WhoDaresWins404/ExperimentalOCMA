@@ -22,7 +22,7 @@
 
       <div class="section" v-if="summary.llm_summary">
         <h2>LLM Executive Summary</h2>
-        <p>{{ summary.llm_summary }}</p>
+        <LlmSummaryBlock :text="summary.llm_summary" />
       </div>
 
       <div class="section">
@@ -38,6 +38,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
 import FindingsFeed from '../components/FindingsFeed.vue'
+import LlmSummaryBlock from '../components/LlmSummaryBlock.vue'
 
 const props = defineProps({ id: String })
 const route = useRoute()

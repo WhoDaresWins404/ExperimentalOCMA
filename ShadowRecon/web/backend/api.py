@@ -263,6 +263,22 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         if not session:
             raise HTTPException(404, "Session not found")
         nodes, edges = await engine.db.get_session_graph(session_id)
+        for node in nodes:
+            if isinstance(node.get("extra_data"), str):
+                try:
+                    node["metadata"] = json.loads(node.pop("extra_data"))
+                except (json.JSONDecodeError, TypeError):
+                    node["metadata"] = {}
+            else:
+                node["metadata"] = node.pop("extra_data", {})
+        for edge in edges:
+            if isinstance(edge.get("extra_data"), str):
+                try:
+                    edge["metadata"] = json.loads(edge.pop("extra_data"))
+                except (json.JSONDecodeError, TypeError):
+                    edge["metadata"] = {}
+            else:
+                edge["metadata"] = edge.pop("extra_data", {})
         return {"nodes": nodes, "edges": edges}
 
     @app.get("/api/export/training-data/{campaign_id}")

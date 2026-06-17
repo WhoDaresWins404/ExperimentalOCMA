@@ -66,6 +66,7 @@ const tooltipData = reactive({})
 
 let simulation = null
 let svg = null
+const pinnedPositions = new Map()
 
 const typeFilter = ref({
   host: true,
@@ -239,15 +240,24 @@ function updateGraph() {
   const g = svg.select('g.graph-group')
 
   const nodeData = nodes
-    .map(n => ({
-      id: n.id || n.label,
-      label: n.label || '?',
-      type: n.node_type || 'unknown',
-      isFinding: n.metadata?.is_finding || false,
-      severity: n.metadata?.severity || '',
-      url: n.url || '',
-      metadata: n.metadata || {},
-    }))
+    .map(n => {
+      const meta = n.metadata || {}
+      const obj = {
+        id: n.id || n.label,
+        label: n.label || '?',
+        type: n.node_type || 'unknown',
+        isFinding: meta.is_finding || false,
+        severity: meta.severity || '',
+        url: n.url || '',
+        metadata: meta,
+      }
+      if (pinnedPositions.has(obj.id)) {
+        const p = pinnedPositions.get(obj.id)
+        obj.fx = p.fx; obj.fy = p.fy
+        obj.x = p.x; obj.y = p.y
+      }
+      return obj
+    })
     .filter(n => activeTypes.has(n.type) || (n.isFinding && activeTypes.has('finding')))
 
   const validIds = new Set(nodeData.map(n => n.id))
@@ -297,6 +307,7 @@ function updateGraph() {
         if (!event.active) simulation.alphaTarget(0)
         d.fx = d.x
         d.fy = d.y
+        pinnedPositions.set(d.id, { fx: d.x, fy: d.y, x: d.x, y: d.y })
       })
     )
 

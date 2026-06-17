@@ -16,7 +16,7 @@
         <strong>Remediation:</strong> {{ f.remediation }}
       </div>
       <div v-if="expanded === f.id" class="finding-evidence">
-        <pre>{{ JSON.stringify(f.evidence, null, 2) }}</pre>
+        <EvidenceViewer :evidence="f.evidence" :scanner-name="f.scanner_name" />
       </div>
       <button v-if="hasEvidence(f)" class="expand-btn" @click="toggleExpand(f.id)">
         {{ expanded === f.id ? 'Hide' : 'Show' }} Evidence
@@ -28,6 +28,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import RiskBadge from './RiskBadge.vue'
+import EvidenceViewer from './EvidenceViewer.vue'
 
 const props = defineProps({ findings: { type: Array, default: () => [] } })
 const expanded = ref(null)

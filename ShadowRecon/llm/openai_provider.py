@@ -122,19 +122,19 @@ class OpenAIProvider(LLMProvider):
 
             parts = []
             if sections["executive_summary"]:
-                parts.append("=== EXECUTIVE SUMMARY ===")
+                parts.append("## Executive Summary")
                 parts.append(sections["executive_summary"])
             if sections["critical_findings"]:
-                parts.append("\n=== CRITICAL & HIGH FINDINGS ===")
+                parts.append("\n## Critical & High Findings")
                 parts.append(sections["critical_findings"])
             if sections["medium_findings"]:
-                parts.append("\n=== MEDIUM FINDINGS ===")
+                parts.append("\n## Medium Findings")
                 parts.append(sections["medium_findings"])
             if sections["attack_narrative"]:
-                parts.append("\n=== ATTACK NARRATIVE ===")
+                parts.append("\n## Attack Narrative")
                 parts.append(sections["attack_narrative"])
             if sections["recommended_actions"]:
-                parts.append("\n=== RECOMMENDED ACTIONS ===")
+                parts.append("\n## Recommended Actions")
                 parts.append(sections["recommended_actions"])
 
             return "\n\n".join(parts) if parts else response[:1000]
