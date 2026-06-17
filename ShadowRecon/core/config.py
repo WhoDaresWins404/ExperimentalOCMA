@@ -23,6 +23,7 @@ class LLMConfig(BaseModel):
     max_tokens: int = 2048
     timeout: int = 60
     enrich_findings: bool = True
+    enrich_min_severity: str = "high"
     generate_summary: bool = True
     generate_training_data: bool = True
 

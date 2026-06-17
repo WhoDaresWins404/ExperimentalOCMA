@@ -7,11 +7,19 @@ from core.config import ScanConfig
 from core.models import Finding, ScanResult
 from core.exceptions import LLMUnavailable
 
+SEVERITY_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+
 
 class LLMEnhancer:
     def __init__(self, config: ScanConfig):
         self.config = config.llm
         self._provider = None
+
+    def _severity_threshold(self) -> int:
+        return SEVERITY_ORDER.get(self.config.enrich_min_severity, 3)
+
+    def _qualifies(self, finding: Finding) -> bool:
+        return SEVERITY_ORDER.get(finding.severity.value, 0) >= self._severity_threshold()
 
     async def _get_provider(self):
         if self._provider is not None:
@@ -47,9 +55,8 @@ class LLMEnhancer:
                 except Exception:
                     return finding
 
-        enrich_severities = {"high", "critical", "medium"}
-        tasks = [enrich_one(f) for f in findings if f.severity.value in enrich_severities]
-        tasks += [asyncio.ensure_future(asyncio.sleep(0, result=f)) for f in findings if f.severity.value not in enrich_severities]
+        tasks = [enrich_one(f) for f in findings if self._qualifies(f)]
+        tasks += [asyncio.ensure_future(asyncio.sleep(0, result=f)) for f in findings if not self._qualifies(f)]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
@@ -89,7 +96,7 @@ class LLMEnhancer:
                 except Exception:
                     return None
 
-        tasks = [generate_one(f) for f in findings if f.severity.value in ("high", "critical", "medium")]
+        tasks = [generate_one(f) for f in findings if self._qualifies(f)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
             if isinstance(r, dict):
