@@ -138,7 +138,7 @@ class OpenAIProvider(LLMProvider):
 
             return "\n\n".join(parts) if parts else response[:1000]
         except LLMProviderError:
-            return "LLM summary unavailable."
+            return ""
 
     async def generate_training_pair(self, finding: Finding) -> dict:
         prompt = TRAINING_PAIR_PROMPT.format(
