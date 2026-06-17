@@ -31,7 +31,7 @@
         <div class="stat-row"><span class="stat-label">Status:</span><span class="stat-value">{{ statusLabel }}</span></div>
         <div class="stat-row"><span class="stat-label">Findings:</span><span class="stat-value">{{ findings.length }}</span></div>
         <div class="stat-row"><span class="stat-label">Endpoints:</span><span class="stat-value">{{ endpoints.length }}</span></div>
-        <div class="stat-row"><span class="stat-label">WS:</span><span class="stat-value" :style="{color: connected ? '#00e5ff' : '#ff1744'}">{{ connected ? 'Connected' : 'Disconnected' }}</span></div>
+        <div class="stat-row"><span class="stat-label">WebSocket:</span><span class="stat-value" :style="{color: connected ? '#00e5ff' : '#ff1744'}">{{ connected ? 'Connected' : 'Disconnected' }}</span></div>
       </div>
 
       <div class="findings-panel">
