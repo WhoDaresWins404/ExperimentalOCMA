@@ -146,6 +146,8 @@ class WAFDetector(BaseScanner):
     async def _detect(self, target: ScanTarget) -> Optional[dict]:
         best_match = None
         best_score = 0
+        normal_fingerprint = None
+        normal_resp = None
         try:
             normal_resp = await self.request("GET", target.url)
             normal_fingerprint = {
@@ -154,26 +156,26 @@ class WAFDetector(BaseScanner):
                 "body_len": len(normal_resp.text),
             }
         except Exception:
-            return None
+            pass
 
-        for sig in self.signatures:
-            score = self._match_signature(sig, normal_fingerprint, normal_resp)
-            if score > best_score:
-                best_score = score
-                best_match = sig
+        if normal_resp and normal_fingerprint:
+            for sig in self.signatures:
+                score = self._match_signature(sig, normal_fingerprint, normal_resp)
+                if score > best_score:
+                    best_score = score
+                    best_match = sig
 
-        if best_score >= PASSIVE_MIN_CONFIDENCE:
-            best_match["confidence"] = best_score
-            return best_match
+            if best_score >= PASSIVE_MIN_CONFIDENCE:
+                best_match["confidence"] = best_score
+                return best_match
 
-        client = await self.get_client()
         base_url = target.url.rstrip("/")
-        base_headers = {"User-Agent": "Mozilla/5.0"}
+        default_headers = {"User-Agent": "Mozilla/5.0"}
 
         for name, payload in PROBE_PAYLOADS:
             try:
                 test_url = f"{base_url}/?q={payload}"
-                resp = await client.get(test_url, headers=base_headers, timeout=10)
+                resp = await self.request("GET", test_url)
                 for sig in self.signatures:
                     score = self._match_signature(sig, normal_fingerprint, resp)
                     if score > best_score:
@@ -184,10 +186,9 @@ class WAFDetector(BaseScanner):
 
         for name, payload in COOKIE_PROBE_PAYLOADS:
             try:
-                resp = await client.get(
-                    base_url,
-                    headers={"User-Agent": "Mozilla/5.0", "Cookie": f"waf_test={payload}"},
-                    timeout=10,
+                resp = await self.request(
+                    "GET", base_url,
+                    headers={"Cookie": f"waf_test={payload}"},
                 )
                 for sig in self.signatures:
                     score = self._match_signature(sig, normal_fingerprint, resp)
@@ -199,7 +200,7 @@ class WAFDetector(BaseScanner):
 
         for ua in SUSPICIOUS_USER_AGENTS:
             try:
-                resp = await client.get(base_url, headers={"User-Agent": ua}, timeout=10)
+                resp = await self.request("GET", base_url, headers={"User-Agent": ua})
                 for sig in self.signatures:
                     score = self._match_signature(sig, normal_fingerprint, resp)
                     if score > best_score:
@@ -210,7 +211,7 @@ class WAFDetector(BaseScanner):
 
         for path in ACL_BYPASS_PATHS:
             try:
-                resp = await client.get(f"{base_url}{path}", headers=base_headers, timeout=10)
+                resp = await self.request("GET", f"{base_url}{path}")
                 for sig in self.signatures:
                     score = self._match_signature(sig, normal_fingerprint, resp)
                     if score > best_score:
@@ -250,8 +251,9 @@ class WAFDetector(BaseScanner):
                 score += 0.2
 
         block_score = checks.get("block_score", 0.5)
-        if response.status_code in (403, 406, 429, 503) and normal["status"] == 200:
-            score += 0.3
+        if (normal and response.status_code in (403, 406, 429, 503)
+                and normal.get("status") == 200):
+            score += block_score
         return min(score, 1.0)
 
     def _select_evasion(self) -> list[str]:

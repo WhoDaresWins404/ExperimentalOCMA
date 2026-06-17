@@ -54,6 +54,13 @@ class EndpointGraph:
 
     def add_finding_node(self, finding: Finding) -> GraphNode:
         node_id = f"finding_{uuid4().hex[:8]}"
+        llm_info = {}
+        if finding.llm_analysis:
+            llm_info = {
+                "llm_description": finding.llm_analysis.natural_description[:200],
+                "llm_impact": finding.llm_analysis.impact_analysis[:200],
+                "llm_model": finding.llm_analysis.model_used,
+            }
         node = GraphNode(
             id=node_id,
             session_id=self.session_id,
@@ -65,6 +72,11 @@ class EndpointGraph:
                 "scanner": finding.scanner_name,
                 "finding_id": finding.id,
                 "is_finding": True,
+                "description": finding.description[:300],
+                "remediation": finding.remediation[:300] if finding.remediation else "",
+                "confidence": finding.confidence,
+                "tags": finding.tags[:5],
+                **llm_info,
             },
         )
         self.graph.add_node(node_id, **node.model_dump())

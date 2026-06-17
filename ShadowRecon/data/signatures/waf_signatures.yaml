@@ -8,9 +8,9 @@ wafs:
       headers:
         server: "cloudflare"
         cf-ray: "."
-        set-cookie: "__cfduid"
+        set-cookie: "__cf_bm|cf_clearance|_cfuvid"
       cookies:
-        __cfduid: "."
+        __cf_bm: "."
       body:
         - "Attention Required! \\| Cloudflare"
         - "Please complete the security check"
