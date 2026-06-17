@@ -1,3 +1,54 @@
+def format_findings_for_summary(result) -> dict:
+    summary = result.stats if hasattr(result, "stats") else {}
+    findings = getattr(result, "findings", [])
+    endpoints = getattr(result, "endpoints", [])
+
+    scanners = summary.get("findings_by_scanner", {}) or {}
+    if not scanners and findings:
+        for f in findings:
+            sn = f.scanner_name
+            scanners[sn] = scanners.get(sn, 0) + 1
+
+    by_type = summary.get("endpoints_by_type", {}) or {}
+    if not by_type and endpoints:
+        for ep in endpoints:
+            t = ep.type.value if hasattr(ep.type, "value") else str(ep.type)
+            by_type[t] = by_type.get(t, 0) + 1
+
+    findings_by_scanner = "\n".join(
+        f"  - {scanner}: {count} findings"
+        for scanner, count in sorted(scanners.items())
+    ) or "  (none)"
+
+    endpoints_by_type = "\n".join(
+        f"  - {ep_type}: {count}"
+        for ep_type, count in sorted(by_type.items(), key=lambda x: -x[1])
+    ) or "  (none)"
+
+    waf_name = "none"
+    for f in findings:
+        if "waf" in f.tags and f.evidence.get("waf_name"):
+            waf_name = f.evidence["waf_name"]
+            break
+
+    finding_lines = []
+    for f in sorted(findings, key=lambda x: x.cvss_score or 0, reverse=True):
+        sev = f.severity.value if hasattr(f.severity, "value") else str(f.severity)
+        cvss = f"CVSS:{f.cvss_score:.1f}" if f.cvss_score else "CVSS:N/A"
+        desc = (f.description or "")[:200].replace("\n", " ")
+        finding_lines.append(f"  [{sev.upper()}] {f.title} ({cvss}, scanner: {f.scanner_name})")
+        if desc:
+            finding_lines.append(f"    {desc}")
+    finding_text = "\n".join(finding_lines) if finding_lines else "  (none)"
+
+    return {
+        "waf_detected": waf_name,
+        "findings_by_scanner": findings_by_scanner,
+        "endpoints_by_type": endpoints_by_type,
+        "finding_lines": finding_text,
+    }
+
+
 FINDING_ENRICHMENT_PROMPT = """You are a senior cybersecurity analyst. Analyze the following finding from a security scan and provide a detailed assessment.
 
 FINDING:
@@ -18,28 +69,37 @@ Please provide:
 Respond in JSON format with keys: natural_description, impact_analysis, suggested_cvss_vector, remediation_steps (array), risk_context.
 """
 
-SCAN_SUMMARY_PROMPT = """You are a senior cybersecurity analyst. Summarize the following scan results for an executive audience.
+SCAN_SUMMARY_PROMPT = """You are a senior cybersecurity analyst. Analyze the following scan results and produce a detailed technical report.
 
-SCAN RESULTS:
-Target: {target}
-Duration: {duration_seconds}s
-Total Endpoints Found: {total_endpoints}
-Total Findings: {total_findings}
-Critical: {critical_count}
-High: {high_count}
-Medium: {medium_count}
-Low: {low_count}
+TARGET: {target}
+SCAN DURATION: {duration_seconds}s
+WAF DETECTED: {waf_detected}
 
-Top Risks:
-{top_risks}
+SEVERITY BREAKDOWN:
+- Critical: {critical_count}
+- High: {high_count}
+- Medium: {medium_count}
+- Low: {low_count}
+- Total Findings: {total_findings}
+- Total Endpoints: {total_endpoints}
+
+SCANNER BREAKDOWN:
+{findings_by_scanner}
+
+ENDPOINT TYPES FOUND:
+{endpoints_by_type}
+
+FINDINGS DETAILED LIST:
+{finding_lines}
 
 Please provide:
-1. **Executive Summary**: 2-3 paragraph overview suitable for non-technical stakeholders.
-2. **Critical Findings**: Highlight the most urgent issues requiring immediate attention.
-3. **Attack Narrative**: Describe how a real attacker could chain these findings together.
-4. **Recommended Actions**: Top 5 prioritized actions to remediate the findings.
+1. **Executive Summary**: 2-3 paragraph overview suitable for non-technical stakeholders. MUST reference actual findings by name and severity — do NOT say "no vulnerabilities" unless ALL counts are truly zero.
+2. **Critical & High Findings Analysis**: Detail the most urgent issues, their CVSS scores, affected endpoints, and real-world exploitability.
+3. **Medium Findings Analysis**: Summarize medium-severity issues that should be addressed in the near term.
+4. **Attack Narrative**: Describe how a real attacker could chain these findings together to compromise the target.
+5. **Recommended Actions**: Top 5 prioritized remediation actions, ordered by impact.
 
-Respond in JSON format with keys: executive_summary, critical_findings, attack_narrative, recommended_actions.
+Respond in JSON format with keys: executive_summary, critical_findings, medium_findings, attack_narrative, recommended_actions.
 """
 
 TRAINING_PAIR_PROMPT = """You are a cybersecurity training data generator. Create a high-quality training pair for fine-tuning a security analysis LLM.

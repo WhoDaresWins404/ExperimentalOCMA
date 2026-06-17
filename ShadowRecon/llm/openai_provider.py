@@ -5,7 +5,7 @@ from typing import Optional
 import httpx
 
 from .base import LLMProvider, LLMProviderError
-from .prompts import FINDING_ENRICHMENT_PROMPT, SCAN_SUMMARY_PROMPT, TRAINING_PAIR_PROMPT
+from .prompts import FINDING_ENRICHMENT_PROMPT, SCAN_SUMMARY_PROMPT, TRAINING_PAIR_PROMPT, format_findings_for_summary
 from core.config import LLMConfig
 from core.models import Finding, LLMAnalysis, ScanResult
 
@@ -87,6 +87,7 @@ class OpenAIProvider(LLMProvider):
 
     async def summarize_scan(self, result: ScanResult) -> str:
         summary = result.stats if hasattr(result, "stats") else {}
+        ctx = format_findings_for_summary(result)
         prompt = SCAN_SUMMARY_PROMPT.format(
             target=result.target,
             duration_seconds=summary.get("scan_duration_seconds", 0),
@@ -96,7 +97,10 @@ class OpenAIProvider(LLMProvider):
             high_count=summary.get("high_count", 0),
             medium_count=summary.get("medium_count", 0),
             low_count=summary.get("low_count", 0),
-            top_risks="\n".join(f"- {r}" for r in summary.get("top_risks", [])),
+            waf_detected=ctx["waf_detected"],
+            findings_by_scanner=ctx["findings_by_scanner"],
+            endpoints_by_type=ctx["endpoints_by_type"],
+            finding_lines=ctx["finding_lines"],
         )
         try:
             response = await self._request(prompt)
