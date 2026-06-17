@@ -67,15 +67,22 @@ class BaseScanner(ABC):
             headers = {"Accept": "*/*"}
             if self.config.evasion.user_agent_rotation:
                 headers["User-Agent"] = random.choice(self.config.evasion.user_agents)
+            try:
+                limits = Limits(
+                    max_connections=self.config.threads,
+                    max_keepalive_connections=20,
+                    max_response_size=self.config.max_response_size,
+                )
+            except TypeError:
+                limits = Limits(
+                    max_connections=self.config.threads,
+                    max_keepalive_connections=20,
+                )
             self._client = AsyncClient(
                 mounts=rotator.mounts(),
                 headers=headers,
                 timeout=Timeout(self.config.timeout),
-                limits=Limits(
-                    max_connections=self.config.threads,
-                    max_keepalive_connections=20,
-                    max_response_size=self.config.max_response_size,
-                ),
+                limits=limits,
                 follow_redirects=self.config.follow_redirects,
             )
         return self._client
