@@ -126,6 +126,7 @@ class ScanEngine:
             all_eps.clear()
             all_finds.clear()
 
+            result.endpoints = deduped_endpoints
             for ep in deduped_endpoints:
                 await self.db.add_endpoint(ep)
                 self._emit("endpoint", ep.model_dump())
