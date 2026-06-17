@@ -28,13 +28,19 @@ class OpenAIProvider(LLMProvider):
             "max_tokens": self.config.max_tokens,
         }
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        print(f"[LLM] OpenAI call: model={self.config.model_name} prompt_len={len(prompt)} timeout={self.config.timeout}s")
         try:
             async with httpx.AsyncClient(timeout=self.config.timeout) as client:
+                t0 = time.time()
                 resp = await client.post(url, json=payload, headers=headers)
+                elapsed = time.time() - t0
                 resp.raise_for_status()
                 data = resp.json()
-                return data["choices"][0]["message"]["content"]
+                content = data["choices"][0]["message"]["content"]
+                print(f"[LLM] OpenAI OK: {elapsed:.1f}s response_len={len(content)}")
+                return content
         except Exception as e:
+            print(f"[LLM] OpenAI FAIL: {str(e)[:200]}")
             raise LLMProviderError(f"OpenAI error: {str(e)}")
 
     async def _parse_json_response(self, text: str) -> dict:

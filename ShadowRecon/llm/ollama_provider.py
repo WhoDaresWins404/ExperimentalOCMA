@@ -26,17 +26,24 @@ class OllamaProvider(LLMProvider):
             "max_tokens": self.config.max_tokens,
             "stream": False,
         }
+        print(f"[LLM] Ollama call: model={self.model} prompt_len={len(prompt)} timeout={self.config.timeout}s")
         try:
             async with httpx.AsyncClient(timeout=self.config.timeout) as client:
+                t0 = time.time()
                 resp = await client.post(url, json=payload)
+                elapsed = time.time() - t0
                 resp.raise_for_status()
                 data = resp.json()
+                print(f"[LLM] Ollama OK: {elapsed:.1f}s response_len={len(data.get('response', ''))}")
                 return data.get("response", "")
         except httpx.HTTPStatusError as e:
+            print(f"[LLM] Ollama FAIL: HTTP {e.response.status_code}")
             raise LLMProviderError(f"Ollama HTTP error: {e.response.status_code} - {e.response.text[:200]}")
         except httpx.TimeoutException:
+            print(f"[LLM] Ollama FAIL: timeout after {self.config.timeout}s")
             raise LLMProviderError(f"Ollama timeout after {self.config.timeout}s")
         except Exception as e:
+            print(f"[LLM] Ollama FAIL: {str(e)[:200]}")
             raise LLMProviderError(f"Ollama error: {str(e)}")
 
     async def _parse_json_response(self, text: str) -> dict:
