@@ -47,8 +47,9 @@ class LLMEnhancer:
                 except Exception:
                     return finding
 
-        tasks = [enrich_one(f) for f in findings if f.severity.value in ("high", "critical", "medium")]
-        tasks += [asyncio.ensure_future(asyncio.sleep(0, result=f)) for f in findings if f not in tasks]
+        enrich_severities = {"high", "critical", "medium"}
+        tasks = [enrich_one(f) for f in findings if f.severity.value in enrich_severities]
+        tasks += [asyncio.ensure_future(asyncio.sleep(0, result=f)) for f in findings if f.severity.value not in enrich_severities]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
