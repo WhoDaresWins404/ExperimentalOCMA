@@ -18,12 +18,22 @@
         <a :href="`/api/scan/${sessionId}/report?format=html`" class="btn" download>Download HTML</a>
         <a :href="`/api/scan/${sessionId}/report?format=json`" class="btn" download>Download JSON</a>
         <button @click="$router.push(`/map/${sessionId}`)" class="btn">View Map</button>
+        <button v-if="findings.length > 0" class="btn btn-llm" :disabled="llmLoading" @click="runComprehensive">
+          {{ llmLoading ? 'Analyzing...' : 'Generate Comprehensive LLM Analysis' }}
+        </button>
       </div>
 
       <div class="section" v-if="summary.llm_summary">
-        <h2>LLM Executive Summary</h2>
+        <h2>LLM Comprehensive Analysis</h2>
         <LlmSummaryBlock :text="summary.llm_summary" />
       </div>
+
+      <div class="section" v-if="comprehensiveResult && !summary.llm_summary">
+        <h2>LLM Comprehensive Analysis</h2>
+        <LlmSummaryBlock :text="comprehensiveResult" />
+      </div>
+
+      <div v-if="comprehensiveError" class="error-box">{{ comprehensiveError }}</div>
 
       <div class="section">
         <h2>Findings ({{ findings.length }})</h2>
@@ -48,6 +58,9 @@ const loading = ref(true)
 const error = ref(null)
 const findings = ref([])
 const summary = ref({})
+const llmLoading = ref(false)
+const comprehensiveResult = ref('')
+const comprehensiveError = ref('')
 
 onMounted(async () => {
   try {
@@ -62,6 +75,25 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+async function runComprehensive() {
+  llmLoading.value = true
+  comprehensiveError.value = ''
+  comprehensiveResult.value = ''
+  try {
+    const result = await store.analyzeScan(sessionId)
+    if (result.error) {
+      comprehensiveError.value = result.error
+    } else if (result.summary) {
+      comprehensiveResult.value = result.summary
+      summary.value.llm_summary = result.summary
+    }
+  } catch (e) {
+    comprehensiveError.value = e.message
+  } finally {
+    llmLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -75,12 +107,16 @@ h1 { color: #00e5ff; margin-bottom: 20px; }
 .summary-card { background: #111927; border-radius: 8px; padding: 20px; border: 1px solid #1e3a5f; text-align: center; }
 .summary-card .number { font-size: 2em; font-weight: bold; }
 .summary-card .label { color: #8899aa; font-size: 0.8em; text-transform: uppercase; margin-top: 5px; }
-.actions { display: flex; gap: 10px; margin-bottom: 25px; }
+.actions { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
 .btn {
   background: #1e3a5f; color: #e0e0e0; border: none;
   padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none;
 }
 .btn:hover { background: #2a4a7f; color: #00e5ff; }
+.btn-llm { background: #4a148c; }
+.btn-llm:hover { background: #7c4dff; }
+.btn-llm:disabled { opacity: 0.5; cursor: not-allowed; }
 .section { background: #111927; border: 1px solid #1e3a5f; border-radius: 8px; padding: 25px; margin-bottom: 20px; }
 .section h2 { color: #00e5ff; margin-bottom: 15px; }
+.error-box { background: #1f0a0a; border: 1px solid #ff1744; border-radius: 8px; padding: 15px; margin-bottom: 20px; color: #ff1744; }
 </style>

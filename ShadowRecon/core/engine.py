@@ -137,7 +137,6 @@ class ScanEngine:
                 await self.db.add_endpoint(ep)
                 self._emit("endpoint", ep.model_dump())
 
-            llm_summary_text = ""
             if scan_config.llm.enabled and deduped_findings:
                 await self.session_mgr.update_status(session_id, ScanStatus.LLM_ENRICH)
                 self._emit("status", {"session_id": session_id, "status": ScanStatus.LLM_ENRICH.value})
@@ -145,7 +144,6 @@ class ScanEngine:
                 enhancer = LLMEnhancer(scan_config)
                 enriched = await enhancer.enrich_findings(deduped_findings, session_id)
                 result.findings = enriched
-                llm_summary_text = await enhancer.generate_summary(result)
                 for finding in enriched:
                     self._emit("finding", finding.model_dump())
                     await self.db.add_finding(finding)
@@ -163,7 +161,7 @@ class ScanEngine:
             result.ended_at = datetime.utcnow()
             duration = time.time() - start_time
 
-            summary = self._build_summary(result, duration, llm_summary_text)
+            summary = self._build_summary(result, duration, "")
             result.stats = summary.model_dump()
             try:
                 await self.session_mgr.update_stats(session_id, result.stats)

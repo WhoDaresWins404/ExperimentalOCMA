@@ -73,6 +73,16 @@ export const useScanStore = defineStore('scan', () => {
     return data
   }
 
+  async function analyzeFinding(sessionId, findingId) {
+    const { data } = await axios.post(`${API}/llm/analyze-finding/${sessionId}/${findingId}`)
+    return data
+  }
+
+  async function analyzeScan(sessionId) {
+    const { data } = await axios.post(`${API}/llm/analyze-scan/${sessionId}`)
+    return data
+  }
+
   function connectWebSocket(sessionId) {
     if (ws.value) ws.value.close()
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -138,6 +148,7 @@ export const useScanStore = defineStore('scan', () => {
     campaigns, currentSession, findings, endpoints, graphData,
     scanStatus, connected,
     fetchCampaigns, getCampaign, startScan, getScanStatus,
-    getScanResults, getScanMap, connectWebSocket, disconnectWebSocket, reset,
+    getScanResults, getScanMap, analyzeFinding, analyzeScan,
+    connectWebSocket, disconnectWebSocket, reset,
   }
 })

@@ -303,6 +303,87 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                 edge["metadata"] = edge.pop("extra_data", {})
         return {"nodes": nodes, "edges": edges}
 
+    @app.post("/api/llm/analyze-finding/{session_id}/{finding_id}")
+    async def analyze_finding(session_id: str, finding_id: str):
+        if not config.llm.enabled:
+            raise HTTPException(400, "LLM is not enabled")
+        findings = await engine.db.get_session_findings(session_id)
+        finding_data = next((f for f in findings if f.get("id") == finding_id), None)
+        if not finding_data:
+            raise HTTPException(404, "Finding not found")
+        from core.models import Finding, FindingSeverity
+        finding = Finding(
+            id=finding_data["id"],
+            session_id=finding_data["session_id"],
+            scanner_name=finding_data["scanner_name"],
+            title=finding_data["title"],
+            description=finding_data.get("description", ""),
+            severity=FindingSeverity(finding_data.get("severity", "medium")),
+            evidence=json.loads(finding_data.get("evidence", "{}")),
+            endpoint_id=finding_data.get("endpoint_id"),
+            cvss_score=finding_data.get("cvss_score"),
+            remediation=finding_data.get("remediation", ""),
+            confidence=finding_data.get("confidence", 1.0),
+        )
+        from llm.enhancer import LLMEnhancer
+        enhancer = LLMEnhancer(config)
+        analysis = await enhancer.analyze_finding(finding)
+        if "error" in analysis:
+            return {"error": analysis["error"]}
+        await engine.db.update_finding_llm(finding)
+        return analysis
+
+    @app.post("/api/llm/analyze-scan/{session_id}")
+    async def analyze_scan(session_id: str):
+        if not config.llm.enabled:
+            raise HTTPException(400, "LLM is not enabled")
+        session = await engine.session_mgr.get(session_id)
+        if not session:
+            raise HTTPException(404, "Session not found")
+        findings_data = await engine.db.get_session_findings(session_id)
+        if not findings_data:
+            return {"error": "No findings found"}
+        from core.models import Finding, FindingSeverity
+        findings = [
+            Finding(
+                id=fd["id"], session_id=fd["session_id"], scanner_name=fd["scanner_name"],
+                title=fd["title"], description=fd.get("description", ""),
+                severity=FindingSeverity(fd.get("severity", "medium")),
+                evidence=json.loads(fd.get("evidence", "{}")),
+                endpoint_id=fd.get("endpoint_id"), cvss_score=fd.get("cvss_score"),
+                remediation=fd.get("remediation", ""), confidence=fd.get("confidence", 1.0),
+            ) for fd in findings_data
+        ]
+        from llm.enhancer import LLMEnhancer
+        enhancer = LLMEnhancer(config)
+        target = session.get("target", "unknown")
+        analysis = await enhancer.comprehensive_summary(findings, target)
+        if "error" in analysis:
+            return {"error": analysis["error"]}
+
+        sections = []
+        if analysis.get("executive_summary"):
+            sections.append("## Executive Summary")
+            sections.append(analysis["executive_summary"])
+        if analysis.get("critical_deep_dive"):
+            sections.append("\n## Critical & High Findings Deep-Dive")
+            sections.append(analysis["critical_deep_dive"])
+        if analysis.get("attack_narrative"):
+            sections.append("\n## Attack Narrative")
+            sections.append(analysis["attack_narrative"])
+        if analysis.get("remediation_roadmap"):
+            sections.append("\n## Remediation Roadmap")
+            sections.append(analysis["remediation_roadmap"])
+        if analysis.get("risk_assessment"):
+            sections.append("\n## Risk Assessment")
+            sections.append(analysis["risk_assessment"])
+        summary_text = "\n\n".join(sections)
+
+        stats = json.loads(session.get("stats", "{}"))
+        stats["llm_summary"] = summary_text
+        await engine.session_mgr.update_stats(session_id, stats)
+        return {"summary": summary_text, "sections": analysis}
+
     @app.get("/api/export/training-data/{campaign_id}")
     async def export_training_data(campaign_id: str):
         campaign = await engine.get_campaign(campaign_id)

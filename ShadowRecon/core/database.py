@@ -310,6 +310,16 @@ class Database:
             )
             s.add(row)
 
+    async def update_finding_llm(self, finding: Finding):
+        async with self.session() as s:
+            row = (await s.execute(
+                select(FindingRow).where(FindingRow.id == finding.id)
+            )).scalar_one_or_none()
+            if row:
+                row.is_llm_enhanced = finding.is_llm_enhanced
+                row.llm_analysis = finding.llm_analysis.model_dump_json() if finding.llm_analysis else None
+                row.remediation = finding.remediation
+
     async def add_graph_node(self, node: GraphNode):
         async with self.session() as s:
             row = GraphNodeRow(

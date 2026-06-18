@@ -18,20 +18,52 @@
       <div v-if="expanded === f.id" class="finding-evidence">
         <EvidenceViewer :evidence="f.evidence" :scanner-name="f.scanner_name" />
       </div>
-      <button v-if="hasEvidence(f)" class="expand-btn" @click="toggleExpand(f.id)">
-        {{ expanded === f.id ? 'Hide' : 'Show' }} Evidence
-      </button>
+      <div class="finding-actions">
+        <button v-if="hasEvidence(f)" class="expand-btn" @click="toggleExpand(f.id)">
+          {{ expanded === f.id ? 'Hide' : 'Show' }} Evidence
+        </button>
+        <button class="llm-btn" :disabled="llmLoading === f.id" @click="runLlmAnalysis(f.id)">
+          {{ llmLoading === f.id ? 'Analyzing...' : 'LLM Analyze' }}
+        </button>
+      </div>
+      <div v-if="llmResults[f.id]" class="llm-analysis-block">
+        <div class="llm-section" v-if="llmResults[f.id].technical_impact">
+          <div class="llm-section-title">Technical Impact</div>
+          <div class="llm-section-body">{{ llmResults[f.id].technical_impact }}</div>
+        </div>
+        <div class="llm-section" v-if="llmResults[f.id].exploitation_path">
+          <div class="llm-section-title">Exploitation Path</div>
+          <div class="llm-section-body">{{ llmResults[f.id].exploitation_path }}</div>
+        </div>
+        <div class="llm-section" v-if="llmResults[f.id].remediation">
+          <div class="llm-section-title">Remediation</div>
+          <div class="llm-section-body">{{ llmResults[f.id].remediation }}</div>
+        </div>
+        <div class="llm-section" v-if="llmResults[f.id].chaining_potential">
+          <div class="llm-section-title">Chaining Potential</div>
+          <div class="llm-section-body">{{ llmResults[f.id].chaining_potential }}</div>
+        </div>
+        <div class="llm-section" v-if="llmResults[f.id].analyst_confidence">
+          <div class="llm-section-title">Analyst Confidence</div>
+          <div class="llm-section-body">{{ llmResults[f.id].analyst_confidence }}</div>
+        </div>
+        <div v-if="llmResults[f.id].error" class="llm-error">{{ llmResults[f.id].error }}</div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
+import { useScanStore } from '../store/scanStore'
 import RiskBadge from './RiskBadge.vue'
 import EvidenceViewer from './EvidenceViewer.vue'
 
 const props = defineProps({ findings: { type: Array, default: () => [] } })
+const store = useScanStore()
 const expanded = ref(null)
+const llmLoading = ref(null)
+const llmResults = reactive({})
 
 const sortedFindings = computed(() => {
   return [...props.findings].sort((a, b) => (b.cvss_score || 0) - (a.cvss_score || 0))
@@ -39,6 +71,21 @@ const sortedFindings = computed(() => {
 
 function hasEvidence(f) { return f.evidence && Object.keys(f.evidence).length > 0 }
 function toggleExpand(id) { expanded.value = expanded.value === id ? null : id }
+
+async function runLlmAnalysis(findingId) {
+  llmLoading.value = findingId
+  llmResults[findingId] = null
+  try {
+    const sessionId = props.findings[0]?.session_id
+    if (!sessionId) throw new Error('No session ID')
+    const result = await store.analyzeFinding(sessionId, findingId)
+    llmResults[findingId] = result
+  } catch (e) {
+    llmResults[findingId] = { error: e.message }
+  } finally {
+    llmLoading.value = null
+  }
+}
 </script>
 
 <style scoped>
@@ -55,15 +102,21 @@ function toggleExpand(id) { expanded.value = expanded.value === id ? null : id }
 .finding-desc { color: #b0b0b0; font-size: 0.85em; line-height: 1.5; }
 .finding-remediation { color: #00e5ff; font-size: 0.85em; margin-top: 8px; }
 .finding-evidence { margin-top: 10px; }
-.finding-evidence pre {
-  background: #0a0e17; padding: 12px; border-radius: 4px;
-  font-size: 0.8em; overflow-x: auto; max-height: 200px; overflow-y: auto;
-  color: #b0b0b0; white-space: pre-wrap;
-}
-.expand-btn {
+.finding-actions { display: flex; gap: 8px; margin-top: 8px; }
+.expand-btn, .llm-btn {
   background: none; border: 1px solid #1e3a5f; color: #8899aa;
-  padding: 4px 12px; border-radius: 4px; font-size: 0.8em;
-  cursor: pointer; margin-top: 8px;
+  padding: 4px 12px; border-radius: 4px; font-size: 0.8em; cursor: pointer;
 }
 .expand-btn:hover { color: #00e5ff; border-color: #00e5ff; }
+.llm-btn { border-color: #7c4dff; color: #b388ff; }
+.llm-btn:hover { background: #7c4dff; color: #fff; }
+.llm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.llm-analysis-block {
+  margin-top: 10px; background: #0a0e17; border: 1px solid #7c4dff;
+  border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 10px;
+}
+.llm-section { }
+.llm-section-title { color: #b388ff; font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; font-weight: bold; }
+.llm-section-body { color: #b0b0b0; font-size: 0.82em; line-height: 1.6; white-space: pre-wrap; }
+.llm-error { color: #ff1744; font-size: 0.85em; }
 </style>

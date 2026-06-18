@@ -158,6 +158,51 @@ Top 5 prioritized remediation steps. For each: what to fix, why, and how (specif
 Respond in JSON format with keys: executive_summary, critical_findings, medium_findings, attack_narrative, recommended_actions.
 """
 
+FINDING_ANALYSIS_PROMPT = """You are a senior penetration tester. Analyze this finding in detail.
+
+FINDING:
+Title: {title}
+Description: {description}
+Severity: {severity}
+Scanner: {scanner_name}
+Endpoint: {endpoint_url}
+Evidence: {evidence_json}
+
+Provide a technical analysis with:
+1. **Technical Impact** — What exactly is the risk? Be specific about data/assets at risk.
+2. **Exploitation Path** — Step-by-step commands/tools (e.g., curl, sqlmap, ffuf) to verify or exploit this.
+3. **Remediation** — Specific code/config changes. Include code snippets or config file diffs.
+4. **Chaining Potential** — Can this finding be combined with others for a larger attack?
+5. **Analyst Confidence** — Low / Medium / High — and why.
+
+Respond in JSON with keys: technical_impact, exploitation_path, remediation, chaining_potential, analyst_confidence.
+"""
+
+
+COMPREHENSIVE_SUMMARY_PROMPT = """You are a senior security architect. Produce a comprehensive executive analysis of this scan.
+
+TARGET: {target}
+FINDINGS COUNT: {total_findings}
+SEVERITY BREAKDOWN:
+- Critical: {critical_count}
+- High: {high_count}
+- Medium: {medium_count}
+- Low: {low_count}
+
+FINDINGS:
+{finding_lines}
+
+Produce a structured report with:
+1. **Executive Summary** — 2-3 paragraph overview for C-level/management audience.
+2. **Critical & High Findings Deep-Dive** — For each critical/high finding: endpoint, CVSS (if available), exact risk, exploitation technique, tooling.
+3. **Attack Narrative** — Step-by-step chain showing how findings combine into a full compromise path. Reference exact endpoints.
+4. **Prioritized Remediation Roadmap** — Top 7 actions ordered by risk reduction. For each: what, why, how (code/config/WAF rule).
+5. **Overall Risk Assessment** — One paragraph final verdict with risk level (Critical/High/Medium/Low).
+
+Respond in JSON with keys: executive_summary, critical_deep_dive, attack_narrative, remediation_roadmap, risk_assessment.
+"""
+
+
 TRAINING_PAIR_PROMPT = """You are a cybersecurity training data generator. Create a high-quality training pair for fine-tuning a security analysis LLM.
 
 CONTEXT:
