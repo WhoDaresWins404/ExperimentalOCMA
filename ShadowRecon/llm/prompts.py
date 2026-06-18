@@ -219,3 +219,36 @@ RESPONSE: Write a comprehensive analysis as if by a senior penetration tester.
 
 Output in JSON format with keys: prompt (string), response (string).
 """
+
+
+SCAN_STRATEGY_PROMPT = """You are a senior penetration test strategist. Given the target's technology profile, recommend an optimal scanning strategy.
+
+TARGET: {target}
+SERVER: {server}
+FRAMEWORK: {framework} (confidence: {framework_confidence})
+CMS: {cms}
+SCRIPTING LANGUAGE: {scripting}
+WAF: {waf}
+COOKIES: {cookies}
+EXPOSED PATHS: {exposed_paths}
+
+Available scanners:
+- crawler (depth 0-3, discovers pages)
+- directory_scanner (brute-force paths)
+- api_scanner (probes API endpoints)
+- misconfig_scanner (headers, CORS, debug, ports)
+- anomaly_detector (timing/status analysis)
+- form_scanner (XSS probing, CSRF checks)
+
+Recommend:
+1. priority_scanners: list of scanner names to prioritize (rank by expected yield)
+2. skip_scanners: list of scanners that are unlikely to find anything
+3. augment_wordlists: object mapping scanner_name -> list of extra paths to probe
+4. parameter_focus: list of attack vectors to emphasize (e.g. "LFI", "IDOR", "SSRF", "XSS", "SQLi")
+5. optimal_crawl_depth: integer 0-3 (0=none, 3=deep)
+6. enable_exploit_mode: boolean (aggressive payloads vs safe probes)
+7. rationale: string explaining the strategy
+
+Respond in JSON format with exactly these keys:
+priority_scanners, skip_scanners, augment_wordlists, parameter_focus, optimal_crawl_depth, enable_exploit_mode, rationale
+"""

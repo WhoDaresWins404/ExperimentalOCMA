@@ -66,7 +66,7 @@ class DirectoryScanner(BaseScanner):
         git_403: set[str] = set()
         backup_403: set[str] = set()
 
-        for path in self.wordlist:
+        for path in self.effective_wordlist:
             url = f"{base_url}/{path.lstrip('/')}"
             if url in seen:
                 continue

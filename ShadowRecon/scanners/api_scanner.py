@@ -63,7 +63,7 @@ class ApiScanner(BaseScanner):
         base_url = target.url.rstrip("/")
 
         seen_urls = set()
-        common_paths = self.wordlist + GRAPHQL_PROBES + SWAGGER_PATHS
+        common_paths = self.effective_wordlist + GRAPHQL_PROBES + SWAGGER_PATHS
 
         for path in common_paths:
             url = f"{base_url}/{path.lstrip('/')}"

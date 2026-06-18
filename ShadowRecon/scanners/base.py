@@ -43,14 +43,22 @@ class ProxyRotator:
 
 
 class BaseScanner(ABC):
-    def __init__(self, config: ScanConfig, session_id: str, waf_state: dict = None):
+    def __init__(
+        self,
+        config: ScanConfig,
+        session_id: str,
+        waf_state: dict = None,
+        directive_bus=None,
+    ):
         self.config = config
         self.session_id = session_id
         self.waf_state = waf_state or {}
+        self.directive_bus = directive_bus
         self._results: list[Finding] = []
         self._endpoints: list[Endpoint] = []
         self._stats: dict = {"requests": 0, "errors": 0, "timeouts": 0}
         self._client: Optional[AsyncClient] = None
+        self._augmented_paths: list[str] = []
 
     @property
     @abstractmethod
@@ -180,6 +188,18 @@ class BaseScanner(ABC):
             discovered_by=discovered_by or self.name,
             source="",
         )
+
+    @property
+    def effective_wordlist(self) -> list[str]:
+        """Base wordlist merged with intelligence-driven augmented paths."""
+        base = list(getattr(self, 'wordlist', []))
+        if self._augmented_paths:
+            seen = set(base)
+            for p in self._augmented_paths:
+                if p not in seen:
+                    base.append(p)
+                    seen.add(p)
+        return base
 
     async def cleanup(self):
         self._results.clear()

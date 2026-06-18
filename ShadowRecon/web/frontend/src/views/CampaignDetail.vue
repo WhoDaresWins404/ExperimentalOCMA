@@ -25,7 +25,7 @@
             &middot; {{ s.started_at ? new Date(s.started_at).toLocaleString() : 'Not started' }}
           </div>
           <div class="session-actions">
-            <button @click="$router.push(`/scan/${s.id}`)" v-if="s.status === 'scanning'">View Live</button>
+            <button @click="$router.push(`/scan/${s.id}`)" v-if="['scanning','adaptive_scan','reconnaissance','strategize','waf_check','dedup','llm_enrich','generating_report'].includes(s.status)">View Live</button>
             <button @click="$router.push(`/report/${s.id}`)" v-if="s.status === 'completed'">Report</button>
             <button @click="$router.push(`/map/${s.id}`)" v-if="s.status === 'completed'">Map</button>
           </div>

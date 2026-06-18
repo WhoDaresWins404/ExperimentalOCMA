@@ -4,9 +4,9 @@ from typing import Optional
 
 from .ollama_provider import OllamaProvider
 from .openai_provider import OpenAIProvider
-from .prompts import FINDING_ANALYSIS_PROMPT, COMPREHENSIVE_SUMMARY_PROMPT, format_findings_for_summary
+from .prompts import FINDING_ANALYSIS_PROMPT, COMPREHENSIVE_SUMMARY_PROMPT, SCAN_STRATEGY_PROMPT, format_findings_for_summary
 from core.config import ScanConfig
-from core.models import Finding, ScanResult, LLMAnalysis
+from core.models import Finding, ScanResult, LLMAnalysis, TechFingerprint, ScanStrategy
 from core.exceptions import LLMUnavailable
 
 SEVERITY_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
@@ -188,3 +188,43 @@ class LLMEnhancer:
             if isinstance(r, dict):
                 pairs.append(r)
         return pairs
+
+    async def generate_scan_strategy(self, fp: TechFingerprint, target: str) -> ScanStrategy:
+        """Optional Phase 1 strategy — uses LLM to recommend scanner priorities."""
+        if not self.config.enabled:
+            return ScanStrategy(rationale="LLM disabled")
+
+        try:
+            provider = await self._get_provider()
+        except LLMUnavailable:
+            return ScanStrategy(rationale="LLM unavailable")
+
+        prompt = SCAN_STRATEGY_PROMPT.format(
+            target=target,
+            server=fp.server or "unknown",
+            framework=fp.framework or "unknown",
+            framework_confidence=fp.framework_confidence,
+            cms=fp.cms or "none",
+            scripting=fp.scripting or "unknown",
+            waf=fp.waf or "none",
+            cookies=", ".join(fp.cookies),
+            exposed_paths="\n".join(fp.exposed_paths) if fp.exposed_paths else "none",
+        )
+
+        try:
+            response = await asyncio.wait_for(
+                provider._request(prompt),
+                timeout=self.config.strategize_timeout if hasattr(self.config, 'strategize_timeout') else 120,
+            )
+            parsed = await provider._parse_json_response(response)
+            return ScanStrategy(
+                priority_scanners=parsed.get("priority_scanners", []),
+                skip_scanners=parsed.get("skip_scanners", []),
+                augmented_wordlists=parsed.get("augment_wordlists", {}),
+                parameter_focus=parsed.get("parameter_focus", []),
+                optimal_crawl_depth=parsed.get("optimal_crawl_depth", 1),
+                enable_exploit_mode=parsed.get("enable_exploit_mode", False),
+                rationale=parsed.get("rationale", ""),
+            )
+        except Exception as e:
+            return ScanStrategy(rationale=f"LLM strategy error: {e}")

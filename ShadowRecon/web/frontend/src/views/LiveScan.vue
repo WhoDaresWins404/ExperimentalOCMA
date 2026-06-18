@@ -66,7 +66,11 @@ const scanStarted = computed(() => store.scanStatus !== 'idle' && store.scanStat
 const statusLabel = computed(() => {
   const labels = {
     idle: 'Waiting...', pending: 'Pending', waf_check: 'Checking WAF',
-    scanning: 'Scanning...', dedup: 'Deduplicating findings',
+    reconnaissance: 'Analyzing tech stack',
+    strategize: 'Planning scan strategy',
+    scanning: 'Scanning...',
+    adaptive_scan: 'Scanning (adaptive)...',
+    dedup: 'Deduplicating findings',
     llm_enrich: 'LLM enrichment', generating_report: 'Generating report',
     completed: 'Completed', cancelled: 'Cancelled', failed: 'Failed',
   }
@@ -75,9 +79,11 @@ const statusLabel = computed(() => {
 
 const statusClass = computed(() => {
   const map = {
-    scanning: 'scanning', completed: 'completed', failed: 'error',
-    cancelled: 'cancelled', waf_check: 'scanning', dedup: 'scanning',
+    scanning: 'scanning', adaptive_scan: 'scanning',
+    reconnaissance: 'scanning', strategize: 'scanning',
+    waf_check: 'scanning', dedup: 'scanning',
     llm_enrich: 'scanning', generating_report: 'scanning',
+    completed: 'completed', failed: 'error', cancelled: 'cancelled',
   }
   return map[scanStatus.value] || 'idle'
 })

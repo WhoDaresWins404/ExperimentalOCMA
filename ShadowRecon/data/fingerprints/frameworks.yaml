@@ -1,0 +1,154 @@
+# Framework-specific probes for adaptive scanning
+# Each entry maps detection signals to augmented wordlists and enabled checks
+
+wordpress:
+  detect:
+    cookies: ["wordpress_", "wp-settings-", "wp-settings-time-"]
+    paths_200: ["/wp-json/", "/wp-content/", "/wp-includes/"]
+    headers: {"x-pingback": ""}
+    body_patterns:
+      - "/wp-content/themes/"
+      - "WordPress"
+      - '<meta name="generator" content="WordPress'
+  wordlists:
+    directory_scanner:
+      - "/wp-admin"
+      - "/wp-admin/admin-ajax.php"
+      - "/xmlrpc.php"
+      - "/wp-config.php.bak"
+      - "/wp-content/uploads/"
+      - "/wp-content/plugins/"
+      - "/wp-content/themes/"
+      - "/wp-json/wp/v2/users"
+      - "/wp-json/wp/v2/posts"
+      - "/wp-json/oembed/"
+      - "/?rest_route=/wp/v2/"
+    api_scanner:
+      - "/wp-json/wp/v2/"
+      - "/wp-json/oembed/"
+      - "/rest_route/"
+      - "/?rest_route=/wp/v2/"
+  enabled_checks:
+    - check_xmlrpc_bruteforce
+    - check_plugin_vulns
+    - check_media_upload
+
+laravel:
+  detect:
+    cookies: ["laravel_session", "xsrf-token", "XSRF-TOKEN"]
+    paths_200: ["/.env", "/_ignition/health-check"]
+    headers: {}
+    body_patterns:
+      - "Laravel"
+      - "livewire"
+  wordlists:
+    directory_scanner:
+      - "/storage"
+      - "/_ignition"
+      - "/config"
+      - "/storage/logs/laravel.log"
+      - "/storage/logs/laravel-*.log"
+      - "/.env.bak"
+      - "/.env.save"
+      - "/artisan"
+    api_scanner:
+      - "/api/"
+      - "/api/v1/"
+      - "/api/user"
+      - "/sanctum/csrf-cookie"
+  enabled_checks:
+    - check_env_exposure
+    - check_ignition_debug
+
+django:
+  detect:
+    cookies: ["csrftoken", "sessionid"]
+    paths_200: ["/admin/"]
+    headers: {}
+    body_patterns:
+      - "django"
+      - "csrfmiddlewaretoken"
+      - "Django"
+  wordlists:
+    directory_scanner:
+      - "/admin/"
+      - "/admin/login/"
+      - "/api/"
+      - "/api-auth/"
+      - "/static/admin/"
+      - "/graphql"
+      - "/.env"
+    api_scanner:
+      - "/api/"
+      - "/api/v1/"
+      - "/graphql"
+    enabled_checks:
+      - check_admin_exposure
+
+express:
+  detect:
+    cookies: ["connect.sid"]
+    paths_200: []
+    headers: {"x-powered-by": "express"}
+    body_patterns: []
+  wordlists:
+    directory_scanner:
+      - "/.env"
+      - "/package.json"
+      - "/debug/"
+      - "/.git"
+      - "/app.js"
+      - "/server.js"
+      - "/index.js"
+    api_scanner:
+      - "/api/"
+      - "/graphql"
+      - "/rest/"
+      - "/users"
+    enabled_checks:
+      - check_cors_wildcard
+      - check_proto_pollution
+
+rails:
+  detect:
+    cookies: ["_session_id"]
+    paths_200: ["/rails/info"]
+    headers: {"x-powered-by": "phusion passenger"}
+    body_patterns:
+      - "csrf-param"
+      - "csrf-token"
+  wordlists:
+    directory_scanner:
+      - "/rails/info"
+      - "/rails/info/properties"
+      - "/rails/info/routes"
+      - "/assets/"
+      - "/sidekiq"
+      - "/.env"
+    api_scanner:
+      - "/api/"
+      - "/api/v1/"
+    enabled_checks:
+      - check_rails_info_exposure
+
+aspnet:
+  detect:
+    cookies: [".aspnet", "__requestverificationtoken"]
+    paths_200: []
+    headers: {"x-powered-by": "asp.net"}
+    body_patterns:
+      - "__VIEWSTATE"
+      - "__EVENTVALIDATION"
+  wordlists:
+    directory_scanner:
+      - "/web.config"
+      - "/web.config.bak"
+      - "/bin/"
+      - "/App_Data/"
+      - "/App_Code/"
+    api_scanner:
+      - "/api/"
+      - "/odata/"
+      - "/swagger/"
+    enabled_checks:
+      - check_webconfig_exposure

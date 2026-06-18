@@ -1,0 +1,39 @@
+# Web server specific probes
+
+nginx:
+  detect_headers:
+    server: "nginx"
+  checks:
+    - check_alias_traversal
+    - check_merge_slash
+    - check_default_files
+  wordlists:
+    directory_scanner:
+      - "~^.*\.php$"  # check for PHP FPM on nginx
+
+apache:
+  detect_headers:
+    server: "apache"
+  checks:
+    - check_directory_listing
+    - check_server_status
+    - check_cgi_bin
+  wordlists:
+    directory_scanner:
+      - "/cgi-bin/"
+      - "/server-status"
+      - "/server-info"
+      - "/icons/"
+
+iis:
+  detect_headers:
+    server: "iis"
+    x-powered-by: "asp.net"
+  checks:
+    - check_trace_method
+    - check_iis_shortname
+  wordlists:
+    directory_scanner:
+      - "/_vti_bin/"  # FrontPage extensions
+      - "/scripts/"
+      - "/msadc/"

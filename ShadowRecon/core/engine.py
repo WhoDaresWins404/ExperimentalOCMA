@@ -8,11 +8,17 @@ from .config import ScanConfig
 from .models import (
     ScanTarget, ScanResult, ScanSummary, ScanStatus,
     Endpoint, Finding, Campaign, ScanSession, GraphNode, GraphEdge,
-    NodeType, EdgeType, FindingSeverity, CVSSVector
+    NodeType, EdgeType, FindingSeverity, CVSSVector,
+    TechFingerprint, ScanStrategy,
 )
 from .database import Database
 from .session import CampaignManager, ScanSessionManager
 from .deduplicator import Deduplicator
+from .directive import DirectiveBus
+from .budget import TimeBudgetManager
+from .intelligence import IntelligenceCore
+from .scheduler import PriorityScheduler
+from .fingerprint import FingerprintEngine
 from scanners.registry import ScannerRegistry
 from scanners.base import BaseScanner
 from core.exceptions import ShadowReconError, WAFDetected, ScanCancelled
@@ -92,52 +98,123 @@ class ScanEngine:
         start_time = time.time()
 
         try:
+            # ── Phase 0: WAF Check ────────────────────────────────────────
             await self.session_mgr.update_status(session_id, ScanStatus.WAF_CHECK)
             self._emit("status", {"session_id": session_id, "status": ScanStatus.WAF_CHECK.value})
 
             waf_findings, waf_endpoints = await self._run_waf_check(target, session_id, scan_config)
 
-            await self.session_mgr.update_status(session_id, ScanStatus.SCANNING)
-            self._emit("status", {"session_id": session_id, "status": ScanStatus.SCANNING.value})
-
             async def _scan_core():
                 scan_target = ScanTarget(url=target)
 
-                scanner_instances = ScannerRegistry.instantiate_all(
-                    scan_config, session_id, self._waf_state
-                )
+                use_intel = scan_config.intelligence.enabled
 
-                if scan_config.scan_mode == "waf_only":
-                    scanner_instances.clear()
-                    scanner_results: dict = {}
-                else:
-                    scanner_results = await self._run_scanners(
-                        scan_target, scanner_instances, session_id, scan_config
+                if use_intel:
+                    # ── Phase 1a: RECONNAISSANCE ──────────────────────────
+                    await self.session_mgr.update_status(session_id, ScanStatus.RECONNAISSANCE)
+                    self._emit("status", {"session_id": session_id, "status": ScanStatus.RECONNAISSANCE.value})
+
+                    fingerprinter = FingerprintEngine(scan_config)
+                    tech_fp = await fingerprinter.fingerprint(target, self._waf_state)
+
+                    # ── Phase 1b: STRATEGIZE ──────────────────────────────
+                    await self.session_mgr.update_status(session_id, ScanStatus.STRATEGIZE)
+                    self._emit("status", {"session_id": session_id, "status": ScanStatus.STRATEGIZE.value})
+
+                    directive_bus = DirectiveBus()
+                    budget_mgr = TimeBudgetManager(scan_config.max_scan_time)
+                    budget_mgr.start()
+
+                    intel = IntelligenceCore(directive_bus, scan_config)
+                    await intel.set_profile(tech_fp)
+
+                    # Optional LLM strategy
+                    if scan_config.llm.enabled and scan_config.llm.strategize:
+                        try:
+                            from llm.enhancer import LLMEnhancer
+                            enhancer = LLMEnhancer(scan_config)
+                            llm_strategy = await enhancer.generate_scan_strategy(tech_fp, target)
+                            await intel.apply_strategy(llm_strategy)
+                        except Exception as e:
+                            print(f"[!] LLM strategy failed (falling back to rules): {e}")
+
+                    # ── Phase 2: ADAPTIVE_SCAN ────────────────────────────
+                    await self.session_mgr.update_status(session_id, ScanStatus.ADAPTIVE_SCAN)
+                    self._emit("status", {"session_id": session_id, "status": ScanStatus.ADAPTIVE_SCAN.value})
+
+                    scanner_instances = ScannerRegistry.instantiate_all(
+                        scan_config, session_id, self._waf_state, directive_bus
                     )
-                scanner_instances.clear()
 
+                    if scan_config.scan_mode == "waf_only":
+                        all_findings = waf_findings[:]
+                        all_endpoints = waf_endpoints[:]
+                    else:
+                        scheduler = PriorityScheduler(
+                            scanner_instances, budget_mgr, directive_bus, scan_config
+                        )
+                        scheduler.build_from_profile(intel.profile, scan_config.scan_mode)
+
+                        all_findings = waf_findings[:]
+                        all_endpoints = waf_endpoints[:]
+
+                        while True:
+                            if self._cancelled:
+                                raise ScanCancelled()
+                            job_result = await scheduler.run_next(scan_target)
+                            if job_result is None:
+                                break
+                            scanner_name, (findings, endpoints) = job_result
+                            for f in findings:
+                                await intel.absorb_finding(f, scanner_name)
+                            for ep in endpoints:
+                                await intel.absorb_endpoint(ep, scanner_name)
+                            all_findings.extend(findings)
+                            all_endpoints.extend(endpoints)
+
+                    scanner_instances.clear()
+
+                else:
+                    # ── Legacy linear path (intelligence disabled) ───────
+                    await self.session_mgr.update_status(session_id, ScanStatus.SCANNING)
+                    self._emit("status", {"session_id": session_id, "status": ScanStatus.SCANNING.value})
+
+                    scanner_instances = ScannerRegistry.instantiate_all(
+                        scan_config, session_id, self._waf_state
+                    )
+
+                    if scan_config.scan_mode == "waf_only":
+                        scanner_instances.clear()
+                        scanner_results = {}
+                    else:
+                        scanner_results = await self._run_scanners_legacy(
+                            scan_target, scanner_instances, session_id, scan_config
+                        )
+                    scanner_instances.clear()
+
+                    all_eps = waf_endpoints[:]
+                    all_finds = waf_findings[:]
+                    for finds, eps in scanner_results.values():
+                        all_eps.extend(eps)
+                        all_finds.extend(finds)
+                    scanner_results.clear()
+
+                    all_endpoints = all_eps
+                    all_findings = all_finds
+
+                # ── Phase 3: DEDUP ────────────────────────────────────────
                 await self.session_mgr.update_status(session_id, ScanStatus.DEDUP)
                 self._emit("status", {"session_id": session_id, "status": ScanStatus.DEDUP.value})
 
-                all_eps = waf_endpoints
-                all_finds = waf_findings
-                for finds, eps in scanner_results.values():
-                    all_eps.extend(eps)
-                    all_finds.extend(finds)
-
-                scanner_results.clear()
-
-                deduped_endpoints = await self.deduplicator.dedup_endpoints(all_eps)
-                deduped_findings = await self.deduplicator.dedup_findings(all_finds)
-
-                all_eps.clear()
-                all_finds.clear()
+                deduped_endpoints = await self.deduplicator.dedup_endpoints(all_endpoints)
+                deduped_findings = await self.deduplicator.dedup_findings(all_findings)
 
                 result.endpoints = deduped_endpoints
                 for ep in deduped_endpoints:
                     await self.db.add_endpoint(ep)
                     self._emit("endpoint", ep.model_dump())
 
+                # ── Phase 4: LLM_ENRICH (unchanged) ──────────────────────
                 if scan_config.llm.enabled and deduped_findings:
                     await self.session_mgr.update_status(session_id, ScanStatus.LLM_ENRICH)
                     self._emit("status", {"session_id": session_id, "status": ScanStatus.LLM_ENRICH.value})
@@ -154,6 +231,7 @@ class ScanEngine:
                         await self.db.add_finding(finding)
                     result.findings = deduped_findings
 
+                # ── Phase 5: REPORT ───────────────────────────────────────
                 await self.session_mgr.update_status(session_id, ScanStatus.GENERATING_REPORT)
                 self._emit("status", {"session_id": session_id, "status": ScanStatus.GENERATING_REPORT.value})
 
@@ -218,13 +296,14 @@ class ScanEngine:
                 self._waf_state["active"] = True
         return findings, endpoints
 
-    async def _run_scanners(
+    async def _run_scanners_legacy(
         self,
         target: ScanTarget,
         scanners: dict[str, BaseScanner],
         session_id: str,
         scan_config: ScanConfig = None,
     ) -> dict[str, tuple[list[Finding], list[Endpoint]]]:
+        """Legacy linear scanner pipeline — used when intelligence is disabled."""
         results = {}
 
         cfg = scan_config or self.config

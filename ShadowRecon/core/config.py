@@ -41,6 +41,8 @@ class LLMConfig(BaseModel):
     payload_gen_timeout: int = 120
     payload_gen_max_attempts: int = 3
     payload_gen_fallback: bool = True
+    strategize: bool = False
+    strategize_timeout: int = 120
 
 
 class EvasionConfig(BaseModel):
@@ -56,6 +58,17 @@ class EvasionConfig(BaseModel):
     request_delay_min: float = 0.1
     request_delay_max: float = 2.0
     jitter: bool = True
+
+
+class IntelligenceConfig(BaseModel):
+    """Controls the adaptive scan intelligence system."""
+    enabled: bool = True
+    fingerprint: bool = True
+    adaptive_wordlists: bool = True
+    escalation_rules: bool = True
+    context_aware_crawling: bool = True
+    time_budgeting: bool = True
+    fingerprint_path: str = str(Path(__file__).parent.parent / "data" / "fingerprints")
 
 
 class DatabaseConfig(BaseModel):
@@ -87,6 +100,7 @@ class ScanConfig(BaseModel):
     auth: AuthConfig = Field(default_factory=AuthConfig)
     evasion: EvasionConfig = Field(default_factory=EvasionConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    intelligence: IntelligenceConfig = Field(default_factory=IntelligenceConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
 
     data_dir: str = str(Path(__file__).parent.parent / "data")
