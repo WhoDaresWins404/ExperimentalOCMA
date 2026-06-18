@@ -1,30 +1,7 @@
 import asyncio
 from typing import Optional
-from dataclasses import dataclass, field
 
-
-@dataclass
-class Directive:
-    """An instruction from IntelligenceCore to a scanner or group of scanners.
-
-    target: scanner name or "all" for every scanner
-    action: one of "augment_wordlist", "skip", "adjust_param", "enable_check"
-    payload: varies by action
-    reason: human-readable explanation
-    priority: 0=info, 1=suggest, 2=enforce
-    expires_after: max scanner runs before auto-expire (None = never)
-    """
-    target: str
-    action: str
-    payload: any = None
-    reason: str = ""
-    priority: int = 1
-    expires_after: Optional[int] = None
-    runs_left: Optional[int] = None
-
-    def __post_init__(self):
-        if self.expires_after is not None:
-            self.runs_left = self.expires_after
+from .models import Directive
 
 
 class DirectiveBus:

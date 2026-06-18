@@ -246,6 +246,11 @@ class Directive:
     reason: str = ""
     priority: int = 1                   # 0=info, 1=suggest, 2=enforce
     expires_after: Optional[int] = None # scanner runs before auto-expire
+    runs_left: Optional[int] = None     # internal counter for consume()
+
+    def __post_init__(self):
+        if self.expires_after is not None:
+            self.runs_left = self.expires_after
 
 
 @dataclass
