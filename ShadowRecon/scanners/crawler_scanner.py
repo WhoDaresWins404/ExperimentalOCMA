@@ -1,4 +1,4 @@
-import re
+from collections import deque
 from urllib.parse import urljoin, urlparse
 from html.parser import HTMLParser
 
@@ -7,29 +7,24 @@ from .registry import register_scanner
 from core.models import ScanTarget, EndpointType
 
 
+SKIP_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".css", ".js",
+                   ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".zip", ".gz",
+                   ".mp4", ".mp3", ".webm", ".avi", ".mov"}
+
+
 class _LinkExtractor(HTMLParser):
     def __init__(self):
         super().__init__()
         self.links: set[str] = set()
-        self.forms: list[dict] = []
 
     def handle_starttag(self, tag, attrs):
-        attrs_dict = dict(attrs)
+        ad = dict(attrs)
         if tag == "a":
-            href = attrs_dict.get("href", "").strip()
+            href = ad.get("href", "").strip()
             if href and not href.startswith("#") and not href.startswith("javascript:"):
                 self.links.add(href)
-        elif tag == "form":
-            self.forms.append({
-                "action": attrs_dict.get("action", ""),
-                "method": attrs_dict.get("method", "get").upper(),
-            })
-        elif tag == "iframe":
-            src = attrs_dict.get("src", "").strip()
-            if src:
-                self.links.add(src)
-        elif tag == "frame":
-            src = attrs_dict.get("src", "").strip()
+        elif tag in ("iframe", "frame"):
+            src = ad.get("src", "").strip()
             if src:
                 self.links.add(src)
 
@@ -42,28 +37,33 @@ class CrawlerScanner(BaseScanner):
         findings = []
         endpoints = []
         visited: set[str] = set()
-        to_visit: list[tuple[str, int]] = [(target.url, 0)]
+        to_visit: deque[tuple[str, int]] = deque()
+        to_visit.append((target.url, 0))
         base_domain = urlparse(target.url).netloc
+        seen_normalized: set[str] = set()
+        page_count = 0
+        max_pages = self.config.max_crawl_pages
 
-        seen_paths: set[str] = set()
-
-        while to_visit:
-            url, depth = to_visit.pop(0)
+        while to_visit and page_count < max_pages:
+            url, depth = to_visit.popleft()
             if url in visited:
                 continue
             if depth > self.config.depth:
                 continue
-            if urlparse(url).netloc and urlparse(url).netloc != base_domain:
+            parsed = urlparse(url)
+            if parsed.netloc and parsed.netloc != base_domain:
+                continue
+            ext = (parsed.path.rpartition(".")[-1] or "").lower()
+            if f".{ext}" in SKIP_EXTENSIONS:
                 continue
 
             visited.add(url)
 
             try:
                 resp = await self.request("GET", url)
+                page_count += 1
                 ep = self.make_endpoint(
-                    url=url,
-                    method="GET",
-                    type_hint="web_page",
+                    url=url, method="GET", type_hint="web_page",
                     status_code=resp.status_code,
                     content_type=resp.headers.get("content-type", ""),
                     response_body=resp.text,
@@ -80,22 +80,20 @@ class CrawlerScanner(BaseScanner):
 
                 for href in extractor.links:
                     absolute = urljoin(url, href)
-                    parsed = urlparse(absolute)
-                    if parsed.netloc and parsed.netloc != base_domain:
+                    p = urlparse(absolute)
+                    if p.netloc and p.netloc != base_domain:
                         continue
-                    if parsed.scheme not in ("http", "https"):
+                    if p.scheme not in ("http", "https"):
                         continue
-                    path = parsed.path.rstrip("/") or "/"
-                    if path in seen_paths:
+                    norm = p.path.rstrip("/") or "/"
+                    if norm in seen_normalized:
                         continue
-                    seen_paths.add(path)
-                    clean_url = f"{parsed.scheme}://{parsed.netloc}{path}"
-                    if parsed.query:
-                        clean_url += f"?{parsed.query}"
-                    if clean_url not in visited:
-                        to_visit.append((clean_url, depth + 1))
+                    seen_normalized.add(norm)
+                    clean = f"{p.scheme}://{p.netloc}{norm}"
+                    if clean not in visited and clean not in {u for u, _ in to_visit}:
+                        to_visit.append((clean, depth + 1))
 
-            except Exception as e:
+            except Exception:
                 self._stats["errors"] += 1
 
         return findings, endpoints

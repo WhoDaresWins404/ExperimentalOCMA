@@ -100,78 +100,91 @@ class ScanEngine:
             await self.session_mgr.update_status(session_id, ScanStatus.SCANNING)
             self._emit("status", {"session_id": session_id, "status": ScanStatus.SCANNING.value})
 
-            scan_target = ScanTarget(url=target)
+            async def _scan_core():
+                scan_target = ScanTarget(url=target)
 
-            scanner_instances = ScannerRegistry.instantiate_all(
-                scan_config, session_id, self._waf_state
-            )
-
-            if scan_config.scan_mode == "waf_only":
-                scanner_instances.clear()
-                scanner_results: dict = {}
-            else:
-                scanner_results = await self._run_scanners(
-                    scan_target, scanner_instances, session_id, scan_config
+                scanner_instances = ScannerRegistry.instantiate_all(
+                    scan_config, session_id, self._waf_state
                 )
-            scanner_instances.clear()
 
-            await self.session_mgr.update_status(session_id, ScanStatus.DEDUP)
-            self._emit("status", {"session_id": session_id, "status": ScanStatus.DEDUP.value})
+                if scan_config.scan_mode == "waf_only":
+                    scanner_instances.clear()
+                    scanner_results: dict = {}
+                else:
+                    scanner_results = await self._run_scanners(
+                        scan_target, scanner_instances, session_id, scan_config
+                    )
+                scanner_instances.clear()
 
-            all_eps = waf_endpoints
-            all_finds = waf_findings
-            for finds, eps in scanner_results.values():
-                all_eps.extend(eps)
-                all_finds.extend(finds)
+                await self.session_mgr.update_status(session_id, ScanStatus.DEDUP)
+                self._emit("status", {"session_id": session_id, "status": ScanStatus.DEDUP.value})
 
-            scanner_results.clear()
+                all_eps = waf_endpoints
+                all_finds = waf_findings
+                for finds, eps in scanner_results.values():
+                    all_eps.extend(eps)
+                    all_finds.extend(finds)
 
-            deduped_endpoints = await self.deduplicator.dedup_endpoints(all_eps)
-            deduped_findings = await self.deduplicator.dedup_findings(all_finds)
+                scanner_results.clear()
 
-            all_eps.clear()
-            all_finds.clear()
+                deduped_endpoints = await self.deduplicator.dedup_endpoints(all_eps)
+                deduped_findings = await self.deduplicator.dedup_findings(all_finds)
 
-            result.endpoints = deduped_endpoints
-            for ep in deduped_endpoints:
-                await self.db.add_endpoint(ep)
-                self._emit("endpoint", ep.model_dump())
+                all_eps.clear()
+                all_finds.clear()
 
-            if scan_config.llm.enabled and deduped_findings:
-                await self.session_mgr.update_status(session_id, ScanStatus.LLM_ENRICH)
-                self._emit("status", {"session_id": session_id, "status": ScanStatus.LLM_ENRICH.value})
-                from llm.enhancer import LLMEnhancer
-                enhancer = LLMEnhancer(scan_config)
-                enriched = await enhancer.enrich_findings(deduped_findings, session_id)
-                result.findings = enriched
-                for finding in enriched:
-                    self._emit("finding", finding.model_dump())
-                    await self.db.add_finding(finding)
-            else:
-                for finding in deduped_findings:
-                    self._emit("finding", finding.model_dump())
-                    await self.db.add_finding(finding)
-                result.findings = deduped_findings
+                result.endpoints = deduped_endpoints
+                for ep in deduped_endpoints:
+                    await self.db.add_endpoint(ep)
+                    self._emit("endpoint", ep.model_dump())
 
-            await self.session_mgr.update_status(session_id, ScanStatus.GENERATING_REPORT)
-            self._emit("status", {"session_id": session_id, "status": ScanStatus.GENERATING_REPORT.value})
+                if scan_config.llm.enabled and deduped_findings:
+                    await self.session_mgr.update_status(session_id, ScanStatus.LLM_ENRICH)
+                    self._emit("status", {"session_id": session_id, "status": ScanStatus.LLM_ENRICH.value})
+                    from llm.enhancer import LLMEnhancer
+                    enhancer = LLMEnhancer(scan_config)
+                    enriched = await enhancer.enrich_findings(deduped_findings, session_id)
+                    result.findings = enriched
+                    for finding in enriched:
+                        self._emit("finding", finding.model_dump())
+                        await self.db.add_finding(finding)
+                else:
+                    for finding in deduped_findings:
+                        self._emit("finding", finding.model_dump())
+                        await self.db.add_finding(finding)
+                    result.findings = deduped_findings
 
-            await self.session_mgr.finalize(session_id, ScanStatus.COMPLETED)
-            result.status = ScanStatus.COMPLETED
+                await self.session_mgr.update_status(session_id, ScanStatus.GENERATING_REPORT)
+                self._emit("status", {"session_id": session_id, "status": ScanStatus.GENERATING_REPORT.value})
+
+                await self.session_mgr.finalize(session_id, ScanStatus.COMPLETED)
+                result.status = ScanStatus.COMPLETED
+                result.ended_at = datetime.utcnow()
+                duration = time.time() - start_time
+
+                summary = self._build_summary(result, duration, "")
+                result.stats = summary.model_dump()
+                try:
+                    await self.session_mgr.update_stats(session_id, result.stats)
+                except Exception:
+                    pass
+
+                self._emit("complete", {
+                    "session_id": session_id,
+                    "summary": summary.model_dump(),
+                })
+
+            await asyncio.wait_for(_scan_core(), timeout=scan_config.max_scan_time)
+
+        except asyncio.TimeoutError:
+            msg = f"Scan timed out after {scan_config.max_scan_time}s"
+            print(f"[!] {msg}")
+            result.status = ScanStatus.FAILED
             result.ended_at = datetime.utcnow()
-            duration = time.time() - start_time
-
-            summary = self._build_summary(result, duration, "")
-            result.stats = summary.model_dump()
-            try:
-                await self.session_mgr.update_stats(session_id, result.stats)
-            except Exception:
-                pass
-
-            self._emit("complete", {
-                "session_id": session_id,
-                "summary": summary.model_dump(),
-            })
+            result.errors.append(msg)
+            await self.session_mgr.add_error(session_id, msg)
+            await self.session_mgr.finalize(session_id, ScanStatus.FAILED)
+            self._emit("error", {"session_id": session_id, "error": msg})
 
         except ScanCancelled:
             result.status = ScanStatus.CANCELLED

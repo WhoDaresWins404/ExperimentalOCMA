@@ -77,6 +77,7 @@ class ScanConfig(BaseModel):
     follow_redirects: bool = True
     max_redirects: int = 5
     depth: int = 2
+    max_crawl_pages: int = 50
     crawl_mode: bool = True
     xss_mode: str = "probe"
     cookies: dict[str, str] = Field(default_factory=dict)

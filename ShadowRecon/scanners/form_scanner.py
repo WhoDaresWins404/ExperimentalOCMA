@@ -12,7 +12,6 @@ class _FormExtractor(HTMLParser):
         self.base_url = base_url
         self.forms: list[dict] = []
         self._current_form: dict = None
-        self.links: set[str] = set()
 
     def handle_starttag(self, tag, attrs):
         ad = dict(attrs)
@@ -31,10 +30,6 @@ class _FormExtractor(HTMLParser):
                 self._current_form["has_csrf"] = True
         elif tag in ("textarea", "select") and self._current_form is not None:
             self._current_form["inputs"].append({"name": ad.get("name", ""), "type": tag, "value": ""})
-        elif tag == "a":
-            href = ad.get("href", "").strip()
-            if href and not href.startswith("#") and not href.startswith("javascript:"):
-                self.links.add(href)
 
     def handle_endtag(self, tag):
         if tag == "form" and self._current_form is not None:
@@ -57,43 +52,28 @@ class FormScanner(BaseScanner):
     async def scan(self, target: ScanTarget) -> tuple[list, list]:
         findings = []
         endpoints = []
-        pages_to_check = [target.url]
-        base_domain = urlparse(target.url).netloc
-        checked = set()
 
-        while pages_to_check:
-            url = pages_to_check.pop(0)
-            if url in checked:
-                continue
-            checked.add(url)
-            if urlparse(url).netloc != base_domain:
-                continue
+        try:
+            resp = await self.request("GET", target.url)
+            ep = self.make_endpoint(url=target.url, status_code=resp.status_code,
+                                    content_type=resp.headers.get("content-type", ""),
+                                    discovered_by=self.name)
+            endpoints.append(ep)
 
-            try:
-                resp = await self.request("GET", url)
-                ep = self.make_endpoint(url=url, status_code=resp.status_code, content_type=resp.headers.get("content-type", ""), discovered_by=self.name)
-                endpoints.append(ep)
+            ct = (resp.headers.get("content-type", "") or "").lower()
+            if "text/html" not in ct:
+                return findings, endpoints
 
-                ct = (resp.headers.get("content-type", "") or "").lower()
-                if "text/html" not in ct:
-                    continue
+            extractor = _FormExtractor(target.url)
+            extractor.feed(resp.text)
 
-                extractor = _FormExtractor(url)
-                extractor.feed(resp.text)
+            for form in extractor.forms:
+                findings.extend(self._check_form_csrf(form))
+                if self.config.xss_mode == "probe":
+                    findings.extend(await self._probe_reflection(target.url, form))
 
-                if not extractor.forms and len(checked) <= 2:
-                    for href in extractor.links:
-                        absolute = urljoin(url, href)
-                        parsed = urlparse(absolute)
-                        if parsed.netloc == base_domain and absolute not in checked:
-                            pages_to_check.append(absolute)
-
-                for form in extractor.forms:
-                    findings.extend(self._check_form_csrf(form))
-                    if self.config.xss_mode == "probe":
-                        findings.extend(await self._probe_reflection(url, form))
-            except Exception:
-                continue
+        except Exception:
+            pass
 
         return findings, endpoints
 
@@ -102,7 +82,7 @@ class FormScanner(BaseScanner):
         if not form.get("has_csrf", False):
             finds.append(self.make_finding(
                 title="Missing CSRF Token on Form",
-                description=f"Form targeting {form.get('action', '')} has no visible CSRF token. May be vulnerable to Cross-Site Request Forgery.",
+                description=f"Form targeting {form.get('action', '')} has no visible CSRF token.",
                 severity="medium",
                 evidence={"form_action": form.get("action", ""), "input_count": len(form.get("inputs", []))},
                 confidence=0.7,
@@ -137,11 +117,8 @@ class FormScanner(BaseScanner):
                             description=f"Form input '{name}' reflects user input in response. Possible XSS vector.",
                             severity="high" if not reflection.get("encoded") else "medium",
                             evidence={
-                                "form_action": action,
-                                "input_name": name,
-                                "payload": probe,
-                                "reflection_type": reflection["type"],
-                                "encoded": reflection.get("encoded", False),
+                                "form_action": action, "input_name": name, "payload": probe,
+                                "reflection_type": reflection["type"], "encoded": reflection.get("encoded", False),
                                 "status_code": resp.status_code,
                             },
                             confidence=0.6 if reflection.get("encoded") else 0.9,
