@@ -62,8 +62,17 @@ def format_llm_section(value) -> str:
                 for k, v in item.items():
                     k_clean = k.replace("_", " ").title()
                     if isinstance(v, list):
-                        v = ", ".join(str(x) for x in v)
-                    lines.append(f"  {k_clean}: {v}")
+                        items_str = "; ".join(
+                            x.get("name", x.get("type", str(x))) if isinstance(x, dict) else str(x)
+                            for x in v
+                        )
+                        lines.append(f"  {k_clean}: {items_str}")
+                    elif isinstance(v, dict):
+                        lines.append(f"  {k_clean}:")
+                        for sk, sv in v.items():
+                            lines.append(f"    {sk}: {sv}")
+                    else:
+                        lines.append(f"  {k_clean}: {v}")
                 parts.append("\n".join(lines))
             else:
                 parts.append(f"  - {item}")
@@ -72,7 +81,8 @@ def format_llm_section(value) -> str:
         if "findings" in value and isinstance(value["findings"], list):
             return format_llm_section(value["findings"])
         if "steps" in value and isinstance(value["steps"], list):
-            return format_llm_section(value["steps"])
+            steps_text = "\n".join(f"  {s}" for s in value["steps"])
+            return f"Steps:\n{steps_text}"
         if "actions" in value and isinstance(value["actions"], list):
             return format_llm_section(value["actions"])
         lines = []
@@ -82,15 +92,24 @@ def format_llm_section(value) -> str:
                 lines.append(f"{k_clean}:")
                 for item in v:
                     if isinstance(item, dict):
-                        lines.append(f"  - {item.get('step', item.get('what_to_fix', item.get('description', str(item))))}")
+                        sub = item.get("step") or item.get("what_to_fix") or item.get("description") or item.get("type") or ""
+                        detail = item.get("severity") or item.get("impact") or item.get("changes") or item.get("purpose") or ""
+                        if sub and detail:
+                            lines.append(f"  - {sub} ({detail})")
+                        elif sub:
+                            lines.append(f"  - {sub}")
+                        else:
+                            lines.append(f"  - {item}")
                     else:
                         lines.append(f"  - {item}")
             elif isinstance(v, dict):
                 lines.append(f"{k_clean}:")
                 for sk, sv in v.items():
-                    lines.append(f"  {sk}: {sv}")
+                    if sv is not None:
+                        lines.append(f"  {sk}: {sv}")
             else:
-                lines.append(f"{k_clean}: {v}")
+                if v is not None:
+                    lines.append(f"{k_clean}: {v}")
         return "\n".join(lines)
     return str(value)
 

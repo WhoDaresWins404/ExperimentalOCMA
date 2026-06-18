@@ -4,7 +4,7 @@ from typing import Optional
 
 from .ollama_provider import OllamaProvider
 from .openai_provider import OpenAIProvider
-from .prompts import FINDING_ANALYSIS_PROMPT, COMPREHENSIVE_SUMMARY_PROMPT, SCAN_STRATEGY_PROMPT, format_findings_for_summary
+from .prompts import FINDING_ANALYSIS_PROMPT, COMPREHENSIVE_SUMMARY_PROMPT, SCAN_STRATEGY_PROMPT, format_findings_for_summary, format_llm_section
 from core.config import ScanConfig
 from core.models import Finding, ScanResult, LLMAnalysis, TechFingerprint, ScanStrategy
 from core.exceptions import LLMUnavailable
@@ -70,14 +70,8 @@ class LLMEnhancer:
 
     @staticmethod
     def _coerce_str(value) -> str:
-        """Coerce LLM response values to strings (they sometimes return dicts/lists)."""
-        if isinstance(value, str):
-            return value
-        if isinstance(value, list):
-            return "\n".join(str(v) for v in value)
-        if isinstance(value, dict):
-            return json.dumps(value, indent=2)
-        return str(value) if value else ""
+        """Coerce LLM response values to readable strings (they sometimes return dicts/lists)."""
+        return format_llm_section(value) if value else ""
 
     async def analyze_finding(self, finding: Finding) -> dict:
         if not self.config.enabled:
@@ -163,11 +157,11 @@ class LLMEnhancer:
             )
             parsed = await provider._parse_json_response(response)
             return {
-                "executive_summary": parsed.get("executive_summary", ""),
-                "critical_deep_dive": parsed.get("critical_deep_dive", ""),
-                "attack_narrative": parsed.get("attack_narrative", ""),
-                "remediation_roadmap": parsed.get("remediation_roadmap", ""),
-                "risk_assessment": parsed.get("risk_assessment", ""),
+                "executive_summary": format_llm_section(parsed.get("executive_summary", "")),
+                "critical_deep_dive": format_llm_section(parsed.get("critical_deep_dive", "")),
+                "attack_narrative": format_llm_section(parsed.get("attack_narrative", "")),
+                "remediation_roadmap": format_llm_section(parsed.get("remediation_roadmap", "")),
+                "risk_assessment": format_llm_section(parsed.get("risk_assessment", "")),
             }
         except Exception as e:
             return {"error": str(e)}
