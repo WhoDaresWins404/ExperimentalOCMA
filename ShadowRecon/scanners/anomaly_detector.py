@@ -14,8 +14,8 @@ from core.exceptions import WAFDetected
 class AnomalyDetector(BaseScanner):
     name = "anomaly_detector"
 
-    def __init__(self, config, session_id, waf_state=None):
-        super().__init__(config, session_id, waf_state)
+    def __init__(self, config, session_id, waf_state=None, **kwargs):
+        super().__init__(config, session_id, waf_state, **kwargs)
         self._timings: list[float] = []
         self._status_codes: list[int] = []
         self._response_sizes: list[int] = []

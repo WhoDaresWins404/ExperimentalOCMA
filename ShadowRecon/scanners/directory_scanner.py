@@ -39,8 +39,8 @@ ADMIN_PATHS = [
 class DirectoryScanner(BaseScanner):
     name = "directory_scanner"
 
-    def __init__(self, config, session_id, waf_state=None):
-        super().__init__(config, session_id, waf_state)
+    def __init__(self, config, session_id, waf_state=None, **kwargs):
+        super().__init__(config, session_id, waf_state, **kwargs)
         self.wordlist = self._load_wordlist()
 
     def _load_wordlist(self) -> list[str]:

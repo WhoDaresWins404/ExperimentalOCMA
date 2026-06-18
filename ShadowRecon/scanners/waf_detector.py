@@ -70,8 +70,8 @@ EVASION_TECHNIQUES = {
 class WAFDetector(BaseScanner):
     name = "waf_detector"
 
-    def __init__(self, config, session_id, waf_state=None):
-        super().__init__(config, session_id, waf_state)
+    def __init__(self, config, session_id, waf_state=None, **kwargs):
+        super().__init__(config, session_id, waf_state, **kwargs)
         self.signatures = self._load_signatures()
         self.detected_waf: Optional[dict] = None
         self.evasion_strategies: list[str] = []
