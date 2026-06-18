@@ -1,19 +1,14 @@
 <template>
-  <div class="llm-summary">
-    <Card v-for="(section, idx) in sections" :key="idx" :class="['section-card', sectionClass(section.heading)]">
-      <template #title>
-        <div class="section-heading">{{ section.heading }}</div>
-      </template>
-      <template #content>
-        <div class="section-body">{{ section.body }}</div>
-      </template>
-    </Card>
+  <div class="flex flex-col gap-4">
+    <div v-for="(section, idx) in sections" :key="idx" class="bg-cyber-surface rounded-lg p-5 border-l-4" :class="sectionBorder(section.heading)">
+      <div class="text-cyber-accent font-bold text-sm mb-3 uppercase tracking-wider">{{ section.heading }}</div>
+      <div class="text-cyber-text text-sm leading-relaxed whitespace-pre-wrap opacity-80">{{ section.body }}</div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import Card from 'primevue/card'
 
 const props = defineProps({ text: { type: String, default: '' } })
 
@@ -38,25 +33,13 @@ const sections = computed(() => {
   return parts
 })
 
-function sectionClass(heading) {
+function sectionBorder(heading) {
   const h = heading.toLowerCase()
-  if (h.includes('executive')) return 'card-exec'
-  if (h.includes('critical') || h.includes('high')) return 'card-critical'
-  if (h.includes('medium')) return 'card-medium'
-  if (h.includes('narrative')) return 'card-narrative'
-  if (h.includes('recommended') || h.includes('action')) return 'card-action'
-  return ''
+  if (h.includes('executive')) return 'border-cyber-accent'
+  if (h.includes('critical') || h.includes('high')) return 'border-cyber-danger'
+  if (h.includes('medium')) return 'border-cyber-medium'
+  if (h.includes('narrative')) return 'border-cyber-warning'
+  if (h.includes('recommended') || h.includes('action')) return 'border-green-500'
+  return 'border-cyber-border'
 }
 </script>
-
-<style scoped>
-.llm-summary { display: flex; flex-direction: column; gap: 1rem; }
-.section-card { border-left: 4px solid var(--p-surface-500); }
-.section-heading { color: var(--p-primary-color); font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
-.section-body { color: var(--p-surface-200); font-size: 0.88rem; line-height: 1.7; white-space: pre-wrap; }
-.card-exec { border-left-color: var(--p-primary-color); }
-.card-critical { border-left-color: var(--p-red-500); }
-.card-medium { border-left-color: var(--p-yellow-500); }
-.card-narrative { border-left-color: var(--p-orange-400); }
-.card-action { border-left-color: var(--p-green-500); }
-</style>

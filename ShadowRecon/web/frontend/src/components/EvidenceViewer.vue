@@ -1,129 +1,233 @@
 <template>
-  <div class="ev-viewer">
-    <div v-if="isWaf" class="ev-section">
-      <div class="ev-row"><span class="ev-label">WAF</span><span class="ev-val badge">{{ evidence.waf_name || evidence.waf || 'Unknown' }}</span></div>
-      <div v-if="evidence.confidence" class="ev-row"><span class="ev-label">Confidence</span><span class="ev-val">{{ (evidence.confidence * 100).toFixed(0) }}%</span></div>
-      <div v-if="evidence.fingerprint" class="ev-row"><span class="ev-label">Fingerprint</span><code class="ev-code">{{ evidence.fingerprint }}</code></div>
-      <div v-if="evidence.techniques" class="ev-row">
-        <span class="ev-label">Techniques</span>
-        <div class="ev-tags"><Tag v-for="t in evList(evidence.techniques)" :key="t" :value="t" severity="secondary" /></div>
+  <div class="text-xs leading-relaxed space-y-1.5">
+    <!-- WAF -->
+    <div v-if="isWaf">
+      <div class="flex items-baseline gap-2 flex-wrap" v-if="evidence.waf_name || evidence.waf">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">WAF</span>
+        <span class="text-cyber-text word-break break-all"><span class="bg-cyber-llm text-white px-2 py-0.5 rounded text-xs">{{ evidence.waf_name || evidence.waf || 'Unknown' }}</span></span>
       </div>
-      <div v-if="evidence.results" class="ev-row">
-        <span class="ev-label">Evasion Results</span>
-        <pre class="ev-pre">{{ evString(evidence.results) }}</pre>
+      <div class="flex items-baseline gap-2 flex-wrap" v-if="evidence.confidence">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Confidence</span>
+        <span class="text-cyber-text">{{ (evidence.confidence * 100).toFixed(0) }}%</span>
       </div>
-      <div v-if="evidence.probes_sent" class="ev-row"><span class="ev-label">Probes</span><span class="ev-val">{{ evidence.probes_sent }}</span></div>
-      <div v-if="evidence.signatures_checked" class="ev-row"><span class="ev-label">Signatures</span><span class="ev-val">{{ evidence.signatures_checked }}</span></div>
-    </div>
-
-    <div v-else-if="isRedirect" class="ev-section">
-      <div class="ev-row"><span class="ev-label">Redirect</span><span class="ev-val">{{ evidence.from }} <span class="ev-arrow">&rarr;</span> {{ evidence.to }}</span></div>
-    </div>
-
-    <div v-else-if="isDirPaths" class="ev-section">
-      <div class="ev-row"><span class="ev-label">Paths Found</span><span class="ev-val">{{ evidence.count }} blocked</span></div>
-      <Accordion>
-        <AccordionPanel value="0">
-          <AccordionHeader>Show all {{ evidence.count }} paths</AccordionHeader>
-          <AccordionContent>
-            <ul class="ev-pathlist"><li v-for="p in evList(evidence.paths)" :key="p">{{ p }}</li></ul>
-          </AccordionContent>
-        </AccordionPanel>
-      </Accordion>
-    </div>
-
-    <div v-else-if="isSinglePath" class="ev-section">
-      <div v-if="evidence.url" class="ev-row"><span class="ev-label">URL</span><span class="ev-val ev-url">{{ evidence.url }}</span></div>
-      <div v-if="evidence.path" class="ev-row"><span class="ev-label">Path</span><span class="ev-val ev-url">{{ evidence.path }}</span></div>
-      <div v-if="evidence.status" class="ev-row"><span class="ev-label">Status</span><span :class="'status-code status-' + Math.floor(evidence.status / 100) * 100">{{ evidence.status }}</span></div>
-      <div v-if="evidence.size" class="ev-row"><span class="ev-label">Size</span><span class="ev-val">{{ evSize(evidence.size) }}</span></div>
-      <div v-if="evidence.content_preview" class="ev-row">
-        <span class="ev-label">Preview</span>
-        <pre class="ev-pre ev-preview">{{ evidence.content_preview }}</pre>
+      <div class="flex items-baseline gap-2 flex-wrap" v-if="evidence.fingerprint">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Fingerprint</span>
+        <code class="bg-cyber-bg px-1.5 py-0.5 rounded text-cyber-text">{{ evidence.fingerprint }}</code>
       </div>
-      <div v-if="evidence.content" class="ev-row">
-        <span class="ev-label">Content</span>
-        <pre class="ev-pre ev-preview">{{ evidence.content }}</pre>
+      <div class="flex items-baseline gap-2 flex-wrap" v-if="evidence.techniques">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Techniques</span>
+        <span class="flex gap-1 flex-wrap">
+          <span v-for="t in evList(evidence.techniques)" :key="t" class="bg-cyber-bg px-1.5 py-0.5 rounded text-cyber-muted border border-cyber-border text-[0.9em]">{{ t }}</span>
+        </span>
+      </div>
+      <div class="flex items-baseline gap-2 flex-wrap" v-if="evidence.results">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Results</span>
+        <pre class="bg-cyber-bg p-2 rounded overflow-x-auto text-cyber-text whitespace-pre-wrap max-h-[120px] overflow-y-auto w-full">{{ evString(evidence.results) }}</pre>
+      </div>
+      <div class="flex items-baseline gap-2 flex-wrap" v-if="evidence.probes_sent">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Probes</span>
+        <span class="text-cyber-text">{{ evidence.probes_sent }}</span>
+      </div>
+      <div class="flex items-baseline gap-2 flex-wrap" v-if="evidence.signatures_checked">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Signatures</span>
+        <span class="text-cyber-text">{{ evidence.signatures_checked }}</span>
       </div>
     </div>
 
-    <div v-else-if="isHeaders" class="ev-section">
-      <div v-if="evidence.missing" class="ev-row">
-        <span class="ev-label ev-miss">Missing Headers</span>
-        <div class="ev-tags"><Tag v-for="h in evList(evidence.missing)" :key="h" :value="h" severity="warn" /></div>
-      </div>
-      <div v-if="evidence.present" class="ev-row">
-        <span class="ev-label ev-pres">Present Headers</span>
-        <div class="ev-tags"><Tag v-for="h in evList(evidence.present)" :key="h" :value="h" severity="success" /></div>
+    <!-- Redirect -->
+    <div v-else-if="isRedirect">
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Redirect</span>
+        <span class="text-cyber-text">{{ evidence.from }} <span class="text-cyber-accent font-bold">&rarr;</span> {{ evidence.to }}</span>
       </div>
     </div>
 
-    <div v-else-if="isCors" class="ev-section">
-      <div v-if="evidence.access_control_allow_origin" class="ev-row"><span class="ev-label">ACAO</span><span class="ev-val">{{ evidence.access_control_allow_origin }}</span></div>
-      <div v-if="evidence.access_control_allow_credentials" class="ev-row"><span class="ev-label">ACAC</span><span class="ev-val">{{ evidence.access_control_allow_credentials }}</span></div>
-      <div v-if="evidence.sent_origin" class="ev-row"><span class="ev-label">Sent Origin</span><span class="ev-val">{{ evidence.sent_origin }}</span></div>
-      <div v-if="evidence.received_acao" class="ev-row"><span class="ev-label">Received ACAO</span><span class="ev-val">{{ evidence.received_acao }}</span></div>
-      <div v-if="evidence.acao" class="ev-row"><span class="ev-label">ACAO</span><span class="ev-val">{{ evidence.acao }}</span></div>
-      <div v-if="evidence.acac" class="ev-row"><span class="ev-label">ACAC</span><span class="ev-val">{{ evidence.acac }}</span></div>
+    <!-- Directory Paths -->
+    <div v-else-if="isDirPaths">
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Paths Found</span>
+        <span class="text-cyber-text">{{ evidence.count }} blocked</span>
+      </div>
+      <details class="w-full mt-1">
+        <summary class="text-cyber-accent cursor-pointer text-sm font-bold">Show all {{ evidence.count }} paths</summary>
+        <ul class="mt-1.5 ml-4 max-h-[120px] overflow-y-auto space-y-0.5">
+          <li v-for="p in evList(evidence.paths)" :key="p" class="text-cyber-muted text-xs font-mono">{{ p }}</li>
+        </ul>
+      </details>
     </div>
 
-    <div v-else-if="isTiming" class="ev-section">
-      <div class="ev-row"><span class="ev-label">Mean</span><span class="ev-val">{{ evFloat(evidence.mean_ms) }}ms</span></div>
-      <div v-if="evidence.timings_ms" class="ev-row"><span class="ev-label">All Timings</span><span class="ev-val">{{ evList(evidence.timings_ms).join(', ') }}ms</span></div>
-      <div v-if="evidence.stdev_ms" class="ev-row"><span class="ev-label">Std Dev</span><span class="ev-val">{{ evFloat(evidence.stdev_ms) }}ms</span></div>
-      <div v-if="evidence.cv" class="ev-row"><span class="ev-label">CV</span><span class="ev-val">{{ evFloat(evidence.cv) }}</span></div>
-    </div>
-
-    <div v-else-if="isStatusCounts" class="ev-section">
-      <div v-for="(count, code) in evObj(evidence.status_counts)" :key="code" class="ev-row">
-        <span class="ev-label">Status {{ code }}</span>
-        <span class="ev-val">{{ count }}</span>
-        <span class="ev-bar" :style="{ width: (count / maxCount * 100) + '%' }"></span>
+    <!-- Single Path -->
+    <div v-else-if="isSinglePath">
+      <div v-if="evidence.url" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">URL</span>
+        <span class="text-cyber-accent word-break break-all">{{ evidence.url }}</span>
+      </div>
+      <div v-if="evidence.path" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Path</span>
+        <span class="text-cyber-accent word-break break-all">{{ evidence.path }}</span>
+      </div>
+      <div v-if="evidence.status" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Status</span>
+        <span class="inline-block px-2 py-0.5 rounded text-xs font-bold" :class="statusClass(evidence.status)">{{ evidence.status }}</span>
+      </div>
+      <div v-if="evidence.size" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Size</span>
+        <span class="text-cyber-text">{{ evSize(evidence.size) }}</span>
+      </div>
+      <div v-if="evidence.content_preview" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Preview</span>
+        <pre class="bg-cyber-bg p-2 rounded overflow-x-auto text-cyber-text whitespace-pre-wrap max-h-[80px] overflow-y-auto w-full">{{ evidence.content_preview }}</pre>
+      </div>
+      <div v-if="evidence.content" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Content</span>
+        <pre class="bg-cyber-bg p-2 rounded overflow-x-auto text-cyber-text whitespace-pre-wrap max-h-[80px] overflow-y-auto w-full">{{ evidence.content }}</pre>
       </div>
     </div>
 
-    <div v-else-if="isCookie" class="ev-section">
-      <div class="ev-row"><span class="ev-label">Cookie</span><code class="ev-code">{{ evidence.cookie }}</code></div>
-      <div v-if="evidence.issues" class="ev-row">
-        <span class="ev-label ev-miss">Issues</span>
-        <div class="ev-tags"><Tag v-for="i in evList(evidence.issues)" :key="i" :value="i" severity="warn" /></div>
+    <!-- Headers -->
+    <div v-else-if="isHeaders">
+      <div v-if="evidence.missing" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-warning text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Missing</span>
+        <span class="flex gap-1 flex-wrap">
+          <span v-for="h in evList(evidence.missing)" :key="h" class="text-cyber-warning border border-cyber-warning bg-cyber-bg px-1.5 py-0.5 rounded text-[0.9em]">{{ h }}</span>
+        </span>
+      </div>
+      <div v-if="evidence.present" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-accent text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Present</span>
+        <span class="flex gap-1 flex-wrap">
+          <span v-for="h in evList(evidence.present)" :key="h" class="text-cyber-accent border border-cyber-accent bg-cyber-bg px-1.5 py-0.5 rounded text-[0.9em]">{{ h }}</span>
+        </span>
       </div>
     </div>
 
-    <div v-else-if="isServerTech" class="ev-section">
-      <div v-if="evidence.server" class="ev-row"><span class="ev-label">Server</span><span class="ev-val">{{ evidence.server }}</span></div>
-      <div v-if="evidence.server_header" class="ev-row"><span class="ev-label">Server Header</span><span class="ev-val">{{ evidence.server_header }}</span></div>
-      <div v-if="evidence['x-powered-by']" class="ev-row"><span class="ev-label">X-Powered-By</span><span class="ev-val">{{ evidence['x-powered-by'] }}</span></div>
-    </div>
-
-    <div v-else-if="isApi" class="ev-section">
-      <div v-if="evidence.item_count" class="ev-row"><span class="ev-label">Items</span><span class="ev-val">{{ evidence.item_count }}</span></div>
-      <div v-if="evidence.sample" class="ev-row">
-        <span class="ev-label">Sample</span>
-        <pre class="ev-pre">{{ evString(evidence.sample) }}</pre>
+    <!-- CORS -->
+    <div v-else-if="isCors">
+      <div v-if="evidence.access_control_allow_origin" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">ACAO</span>
+        <span class="text-cyber-text">{{ evidence.access_control_allow_origin }}</span>
       </div>
-      <div v-if="evidence.keys" class="ev-row"><span class="ev-label">Keys</span><span class="ev-val">{{ evList(evidence.keys).join(', ') }}</span></div>
-      <div v-if="evidence.has_data" class="ev-row"><span class="ev-label">Has Data</span><span class="ev-val">{{ evidence.has_data }}</span></div>
+      <div v-if="evidence.access_control_allow_credentials" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">ACAC</span>
+        <span class="text-cyber-text">{{ evidence.access_control_allow_credentials }}</span>
+      </div>
+      <div v-if="evidence.sent_origin" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Sent Origin</span>
+        <span class="text-cyber-text">{{ evidence.sent_origin }}</span>
+      </div>
+      <div v-if="evidence.received_acao" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Received ACAO</span>
+        <span class="text-cyber-text">{{ evidence.received_acao }}</span>
+      </div>
+      <div v-if="evidence.acao" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">ACAO</span>
+        <span class="text-cyber-text">{{ evidence.acao }}</span>
+      </div>
+      <div v-if="evidence.acac" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">ACAC</span>
+        <span class="text-cyber-text">{{ evidence.acac }}</span>
+      </div>
     </div>
 
-    <div v-else-if="sameSizeData" class="ev-section">
-      <div class="ev-row"><span class="ev-label">Response Sizes</span><span class="ev-val">{{ evList(evidence.response_sizes).join(', ') }}</span></div>
-      <div class="ev-row"><span class="ev-label">Possible WAF block page</span></div>
+    <!-- Timing -->
+    <div v-else-if="isTiming">
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Mean</span>
+        <span class="text-cyber-text">{{ evFloat(evidence.mean_ms) }}ms</span>
+      </div>
+      <div v-if="evidence.timings_ms" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">All Timings</span>
+        <span class="text-cyber-text">{{ evList(evidence.timings_ms).join(', ') }}ms</span>
+      </div>
+      <div v-if="evidence.stdev_ms" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Std Dev</span>
+        <span class="text-cyber-text">{{ evFloat(evidence.stdev_ms) }}ms</span>
+      </div>
+      <div v-if="evidence.cv" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">CV</span>
+        <span class="text-cyber-text">{{ evFloat(evidence.cv) }}</span>
+      </div>
     </div>
 
-    <div v-else class="ev-section">
-      <pre class="ev-pre ev-raw">{{ evString(evidence) }}</pre>
+    <!-- Status Counts -->
+    <div v-else-if="isStatusCounts">
+      <div v-for="(count, code) in evObj(evidence.status_counts)" :key="code" class="flex items-center gap-2 mb-1">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Status {{ code }}</span>
+        <span class="text-cyber-text">{{ count }}</span>
+        <span class="h-1 rounded-sm bg-cyber-accent opacity-50" :style="{ width: (count / maxCount * 100) + '%', minWidth: '4px' }"></span>
+      </div>
+    </div>
+
+    <!-- Cookie -->
+    <div v-else-if="isCookie">
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Cookie</span>
+        <code class="bg-cyber-bg px-1.5 py-0.5 rounded text-cyber-text">{{ evidence.cookie }}</code>
+      </div>
+      <div v-if="evidence.issues" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-warning text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Issues</span>
+        <span class="flex gap-1 flex-wrap">
+          <span v-for="i in evList(evidence.issues)" :key="i" class="text-cyber-warning border border-cyber-warning bg-cyber-bg px-1.5 py-0.5 rounded text-[0.9em]">{{ i }}</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Server Tech -->
+    <div v-else-if="isServerTech">
+      <div v-if="evidence.server" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Server</span>
+        <span class="text-cyber-text">{{ evidence.server }}</span>
+      </div>
+      <div v-if="evidence.server_header" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Server Header</span>
+        <span class="text-cyber-text">{{ evidence.server_header }}</span>
+      </div>
+      <div v-if="evidence['x-powered-by']" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">X-Powered-By</span>
+        <span class="text-cyber-text">{{ evidence['x-powered-by'] }}</span>
+      </div>
+    </div>
+
+    <!-- API -->
+    <div v-else-if="isApi">
+      <div v-if="evidence.item_count" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Items</span>
+        <span class="text-cyber-text">{{ evidence.item_count }}</span>
+      </div>
+      <div v-if="evidence.sample" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Sample</span>
+        <pre class="bg-cyber-bg p-2 rounded overflow-x-auto text-cyber-text whitespace-pre-wrap max-h-[120px] overflow-y-auto w-full">{{ evString(evidence.sample) }}</pre>
+      </div>
+      <div v-if="evidence.keys" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Keys</span>
+        <span class="text-cyber-text">{{ evList(evidence.keys).join(', ') }}</span>
+      </div>
+      <div v-if="evidence.has_data" class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Has Data</span>
+        <span class="text-cyber-text">{{ evidence.has_data }}</span>
+      </div>
+    </div>
+
+    <!-- Same Size Data -->
+    <div v-else-if="sameSizeData">
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider">Response Sizes</span>
+        <span class="text-cyber-text">{{ evList(evidence.response_sizes).join(', ') }}</span>
+      </div>
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <span class="text-cyber-muted-2 text-[0.85em] min-w-[70px] font-semibold uppercase tracking-wider"></span>
+        <span class="text-cyber-text">Possible WAF block page</span>
+      </div>
+    </div>
+
+    <!-- Raw fallback -->
+    <div v-else>
+      <pre class="bg-cyber-bg p-2 rounded overflow-x-auto text-cyber-text whitespace-pre-wrap max-h-[200px] overflow-y-auto w-full">{{ evString(evidence) }}</pre>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import Tag from 'primevue/tag'
-import Accordion from 'primevue/accordion'
-import AccordionPanel from 'primevue/accordionpanel'
-import AccordionHeader from 'primevue/accordionheader'
-import AccordionContent from 'primevue/accordioncontent'
 
 const props = defineProps({
   evidence: { type: [Object, Array, String], default: () => ({}) },
@@ -159,35 +263,19 @@ const maxCount = computed(() => {
   return Math.max(...Object.values(evidence.value.status_counts || {}), 1)
 })
 
+function statusClass(code) {
+  const c = Math.floor(code / 100) * 100
+  return {
+    200: 'bg-green-600 text-white',
+    300: 'bg-cyber-accent text-black',
+    400: 'bg-cyber-warning text-black',
+    500: 'bg-cyber-danger text-white',
+  }[c] || 'bg-cyber-muted text-black'
+}
+
 function evList(v) { return Array.isArray(v) ? v : (typeof v === 'string' ? v.split(/,\s*/) : []) }
 function evObj(v) { return (v && typeof v === 'object') ? v : {} }
 function evString(v) { return typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v) }
 function evFloat(v) { return v != null ? Number(v).toFixed(1) : '' }
 function evSize(v) { const s = Number(v); return s > 1024 ? (s / 1024).toFixed(1) + 'KB' : s + 'B' }
 </script>
-
-<style scoped>
-.ev-viewer { font-size: 0.82rem; line-height: 1.5; }
-.ev-section { display: flex; flex-direction: column; gap: 0.375rem; }
-.ev-row { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
-.ev-label { color: var(--p-surface-400); font-size: 0.85em; min-width: 70px; flex-shrink: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-.ev-val { color: var(--p-surface-100); word-break: break-all; }
-.ev-url { color: var(--p-primary-color); }
-.ev-code { background: var(--p-surface-800); padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.9em; color: var(--p-surface-200); }
-.ev-pre { background: var(--p-surface-800); padding: 0.5rem; border-radius: 4px; font-size: 0.9em; overflow-x: auto; color: var(--p-surface-200); white-space: pre-wrap; max-height: 120px; overflow-y: auto; width: 100%; }
-.ev-preview { max-height: 80px; }
-.ev-raw { max-height: 200px; }
-.ev-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; }
-.ev-miss { color: var(--p-orange-400); }
-.ev-pres { color: var(--p-primary-color); }
-.ev-bar { height: 4px; background: var(--p-primary-color); border-radius: 2px; min-width: 4px; opacity: 0.5; }
-.ev-arrow { color: var(--p-primary-color); font-weight: bold; }
-.ev-pathlist { margin: 0.375rem 0 0 1rem; padding: 0; max-height: 120px; overflow-y: auto; }
-.ev-pathlist li { color: var(--p-surface-300); font-size: 0.85em; font-family: monospace; }
-.badge { display: inline-block; padding: 1px 8px; border-radius: 8px; background: var(--p-primary-400); color: #fff; font-size: 0.9em; }
-.status-code { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
-.status-200 { background: var(--p-green-500); color: #000; }
-.status-300 { background: var(--p-primary-color); color: #000; }
-.status-400 { background: var(--p-orange-400); color: #000; }
-.status-500 { background: var(--p-red-500); color: #fff; }
-</style>

@@ -1,66 +1,59 @@
 <template>
-  <div class="report-view">
-    <Button icon="pi pi-arrow-left" label="Back" severity="secondary" text @click="$router.push('/dashboard')" class="back-btn" />
-    <h1>Scan Report</h1>
+  <div class="py-5">
+    <button @click="$router.push('/dashboard')"
+      class="bg-transparent border border-cyber-border text-cyber-muted px-4 py-2 rounded cursor-pointer mb-5 hover:text-cyber-accent hover:border-cyber-accent transition-colors">
+      &larr; Back
+    </button>
+    <h1 class="text-cyber-accent text-2xl font-bold mb-5">Scan Report</h1>
 
-    <div v-if="loading" class="loading-state">
-      <ProgressSpinner />
-      <p>Loading report...</p>
-    </div>
+    <div v-if="loading" class="text-center py-10 text-cyber-muted">Loading report...</div>
+    <div v-else-if="error" class="bg-red-900 border border-cyber-danger rounded-lg p-4 text-cyber-danger mb-5">{{ error }}</div>
 
-    <Message v-else-if="error" severity="error" :closable="false">{{ error }}</Message>
-
-    <div v-else class="report-content">
-      <div class="summary-grid">
-        <Card class="summary-card"><template #content><div class="number critical">{{ summary.critical_count }}</div><div class="label">Critical</div></template></Card>
-        <Card class="summary-card"><template #content><div class="number high">{{ summary.high_count }}</div><div class="label">High</div></template></Card>
-        <Card class="summary-card"><template #content><div class="number medium">{{ summary.medium_count }}</div><div class="label">Medium</div></template></Card>
-        <Card class="summary-card"><template #content><div class="number low">{{ summary.low_count }}</div><div class="label">Low</div></template></Card>
-        <Card class="summary-card"><template #content><div class="number">{{ summary.total_endpoints }}</div><div class="label">Endpoints</div></template></Card>
-        <Card class="summary-card"><template #content><div class="number">{{ summary.total_findings }}</div><div class="label">Findings</div></template></Card>
+    <div v-else>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4 mb-6">
+        <div v-for="card in summaryCards" :key="card.key" class="bg-cyber-surface border border-cyber-border rounded-lg p-5 text-center">
+          <div class="text-2xl font-bold" :class="card.color">{{ card.value }}</div>
+          <div class="text-cyber-muted text-xs uppercase mt-1">{{ card.label }}</div>
+        </div>
       </div>
 
-      <div class="actions">
-        <Button label="Download HTML" icon="pi pi-download" severity="secondary" @click="downloadReport('html')" />
-        <Button label="Download JSON" icon="pi pi-download" severity="secondary" @click="downloadReport('json')" />
-        <Button label="View Map" icon="pi pi-sitemap" severity="info" @click="$router.push(`/map/${sessionId}`)" />
-        <Button v-if="findings.length > 0" :label="llmLoading ? 'Analyzing...' : 'Generate Comprehensive LLM Analysis'" icon="pi pi-magic" severity="help" :loading="llmLoading" @click="runComprehensive" />
+      <div class="flex gap-2.5 mb-6 flex-wrap">
+        <a :href="`/api/scan/${sessionId}/report?format=html`"
+          class="bg-cyber-surface border border-cyber-border text-cyber-text px-5 py-2.5 rounded text-sm cursor-pointer no-underline hover:bg-cyber-surface-2 hover:text-cyber-accent transition-colors">Download HTML</a>
+        <a :href="`/api/scan/${sessionId}/report?format=json`"
+          class="bg-cyber-surface border border-cyber-border text-cyber-text px-5 py-2.5 rounded text-sm cursor-pointer no-underline hover:bg-cyber-surface-2 hover:text-cyber-accent transition-colors">Download JSON</a>
+        <button @click="$router.push(`/map/${sessionId}`)"
+          class="bg-cyber-surface border border-cyber-border text-cyber-text px-5 py-2.5 rounded text-sm cursor-pointer hover:bg-cyber-surface-2 hover:text-cyber-accent transition-colors">View Map</button>
+        <button v-if="findings.length > 0" :disabled="llmLoading" @click="runComprehensive"
+          class="bg-purple-900 border border-cyber-llm text-cyber-llm-light px-5 py-2.5 rounded text-sm cursor-pointer hover:bg-cyber-llm hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ llmLoading ? 'Analyzing...' : 'Generate Comprehensive LLM Analysis' }}
+        </button>
       </div>
 
-      <Card class="section" v-if="summary.llm_summary && !comprehensiveResult">
-        <template #title>LLM Comprehensive Analysis</template>
-        <template #content>
-          <LlmSummaryBlock :text="summary.llm_summary" />
-        </template>
-      </Card>
+      <div v-if="summary.llm_summary && !comprehensiveResult" class="bg-cyber-surface border border-cyber-border rounded-lg p-6 mb-5">
+        <h2 class="text-cyber-accent font-bold mb-4">LLM Comprehensive Analysis</h2>
+        <LlmSummaryBlock :text="summary.llm_summary" />
+      </div>
 
-      <Card class="section" v-if="comprehensiveResult">
-        <template #title>LLM Comprehensive Analysis</template>
-        <template #content>
-          <LlmSummaryBlock :text="comprehensiveResult" />
-        </template>
-      </Card>
+      <div v-if="comprehensiveResult" class="bg-cyber-surface border border-cyber-border rounded-lg p-6 mb-5">
+        <h2 class="text-cyber-accent font-bold mb-4">LLM Comprehensive Analysis</h2>
+        <LlmSummaryBlock :text="comprehensiveResult" />
+      </div>
 
-      <Message v-if="comprehensiveError" severity="error" :closable="false">{{ comprehensiveError }}</Message>
+      <div v-if="comprehensiveError" class="bg-red-900 border border-cyber-danger rounded-lg p-4 mb-5 text-cyber-danger">{{ comprehensiveError }}</div>
 
-      <Card class="section">
-        <template #title>Findings ({{ findings.length }})</template>
-        <template #content>
-          <FindingsFeed :findings="findings" />
-        </template>
-      </Card>
+      <div class="bg-cyber-surface border border-cyber-border rounded-lg p-6">
+        <h2 class="text-cyber-accent font-bold mb-4">Findings ({{ findings.length }})</h2>
+        <FindingsFeed :findings="findings" />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
-import Button from 'primevue/button'
-import Card from 'primevue/card'
-import Message from 'primevue/message'
-import ProgressSpinner from 'primevue/progressspinner'
 import FindingsFeed from '../components/FindingsFeed.vue'
 import LlmSummaryBlock from '../components/LlmSummaryBlock.vue'
 
@@ -76,22 +69,24 @@ const llmLoading = ref(false)
 const comprehensiveResult = ref('')
 const comprehensiveError = ref('')
 
+const summaryCards = computed(() => [
+  { key: 'critical', value: summary.value.critical_count || 0, label: 'Critical', color: 'text-cyber-danger' },
+  { key: 'high', value: summary.value.high_count || 0, label: 'High', color: 'text-cyber-warning' },
+  { key: 'medium', value: summary.value.medium_count || 0, label: 'Medium', color: 'text-cyber-medium' },
+  { key: 'low', value: summary.value.low_count || 0, label: 'Low', color: 'text-cyber-accent' },
+  { key: 'endpoints', value: summary.value.total_endpoints || 0, label: 'Endpoints', color: 'text-cyber-text' },
+  { key: 'findings', value: summary.value.total_findings || 0, label: 'Findings', color: 'text-cyber-text' },
+])
+
 onMounted(async () => {
   try {
     const result = await store.getScanResults(sessionId)
     findings.value = result.findings || []
     summary.value = result.session?.stats || result.session || {}
     if (!Array.isArray(findings.value)) findings.value = []
-  } catch (e) {
-    error.value = 'Failed to load report: ' + e.message
-  } finally {
-    loading.value = false
-  }
+  } catch (e) { error.value = 'Failed to load report: ' + e.message }
+  finally { loading.value = false }
 })
-
-function downloadReport(format) {
-  window.open(`/api/scan/${sessionId}/report?format=${format}`, '_blank')
-}
 
 async function runComprehensive() {
   llmLoading.value = true
@@ -99,28 +94,9 @@ async function runComprehensive() {
   comprehensiveResult.value = ''
   try {
     const result = await store.analyzeScan(sessionId)
-    if (result.error) {
-      comprehensiveError.value = result.error
-    } else if (result.summary) {
-      comprehensiveResult.value = result.summary
-    }
-  } catch (e) {
-    comprehensiveError.value = e.message
-  } finally {
-    llmLoading.value = false
-  }
+    if (result.error) comprehensiveError.value = result.error
+    else if (result.summary) comprehensiveResult.value = result.summary
+  } catch (e) { comprehensiveError.value = e.message }
+  finally { llmLoading.value = false }
 }
 </script>
-
-<style scoped>
-.report-view { padding: 1.25rem 0; }
-.back-btn { margin-bottom: 1.25rem; }
-h1 { color: var(--p-primary-color); margin-bottom: 1.25rem; }
-.loading-state { text-align: center; padding: 2.5rem; color: var(--p-surface-300); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.9375rem; margin-bottom: 1.5625rem; }
-.summary-card { text-align: center; }
-.number { font-size: 2rem; font-weight: bold; }
-.label { color: var(--p-surface-300); font-size: 0.8rem; text-transform: uppercase; margin-top: 0.3125rem; }
-.actions { display: flex; gap: 0.625rem; margin-bottom: 1.5625rem; flex-wrap: wrap; }
-.section { margin-bottom: 1.25rem; }
-</style>

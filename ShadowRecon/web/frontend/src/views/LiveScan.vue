@@ -1,54 +1,63 @@
 <template>
-  <div class="live-scan">
-    <Button icon="pi pi-arrow-left" label="Back" severity="secondary" text @click="goBack" class="back-btn" />
-    <h1>Live Scan</h1>
+  <div class="py-5">
+    <button @click="goBack"
+      class="bg-transparent border border-cyber-border text-cyber-muted px-4 py-2 rounded cursor-pointer mb-5 hover:text-cyber-accent hover:border-cyber-accent transition-colors">
+      &larr; Back
+    </button>
+    <h1 class="text-cyber-accent text-2xl font-bold mb-5">Live Scan</h1>
 
-    <Card class="status-bar">
-      <template #content>
-        <div class="status-bar-inner">
-          <Tag :severity="statusSeverity" :value="statusLabel" />
-          <Message v-if="wsError" severity="warn" :closable="false">WebSocket disconnected — polling for updates</Message>
-        </div>
-      </template>
-    </Card>
-
-    <div v-if="!scanStarted" class="waiting-state">
-      <ProgressSpinner />
-      <h2>Starting scan...</h2>
-      <p>Initializing scan session. The scan will begin shortly.</p>
-      <p class="session-id">Session: {{ sessionId }}</p>
+    <div class="bg-cyber-surface border border-cyber-border rounded-lg p-4 mb-5 flex items-center gap-3 flex-wrap">
+      <span class="w-2.5 h-2.5 rounded-full" :class="statusDotClass"></span>
+      <span class="text-cyber-text font-bold text-sm">{{ statusLabel }}</span>
+      <span v-if="wsError" class="text-cyber-warning text-xs ml-auto">WebSocket disconnected — polling for updates</span>
     </div>
 
-    <Message v-else-if="scanStatus === 'completed'" severity="success" :closable="false">
+    <div v-if="!scanStarted" class="flex flex-col items-center justify-center py-20 text-cyber-muted text-center">
+      <div class="w-10 h-10 border-3 border-cyber-border border-t-cyber-accent rounded-full animate-spin mb-5"></div>
+      <h2 class="text-cyber-text text-lg mb-2">Starting scan...</h2>
+      <p>Initializing scan session. The scan will begin shortly.</p>
+      <p class="text-cyber-muted-2 text-xs font-mono mt-2.5">Session: {{ sessionId }}</p>
+    </div>
+
+    <div v-else-if="scanStatus === 'completed'"
+      class="bg-green-900 border border-cyber-accent rounded-lg p-4 text-cyber-accent mb-5 flex items-center gap-3 flex-wrap">
       Scan complete!
-      <Button label="View Report" severity="success" size="small" @click="$router.push(`/report/${sessionId}`)" />
-      <Button label="View Map" severity="success" size="small" @click="$router.push(`/map/${sessionId}`)" />
-    </Message>
+      <a :href="`/#/report/${sessionId}`" class="text-cyber-accent underline">View Report</a> &middot;
+      <a :href="`/#/map/${sessionId}`" class="text-cyber-accent underline">View Map</a>
+    </div>
 
-    <Message v-else-if="scanStatus === 'failed'" severity="error" :closable="false">
+    <div v-else-if="scanStatus === 'failed'"
+      class="bg-red-900 border border-cyber-danger rounded-lg p-4 text-cyber-danger mb-5">
       Scan failed. Check the server logs for details.
-    </Message>
+    </div>
 
-    <div v-else class="scan-grid">
-      <Card class="stats-panel">
-        <template #title>Progress</template>
-        <template #content>
-          <div class="stat-row"><span class="stat-label">Status:</span><Tag :severity="statusSeverity" :value="statusLabel" /></div>
-          <div class="stat-row"><span class="stat-label">Findings:</span><span class="stat-value">{{ findings.length }}</span></div>
-          <div class="stat-row"><span class="stat-label">Endpoints:</span><span class="stat-value">{{ endpoints.length }}</span></div>
-          <div class="stat-row">
-            <span class="stat-label">WebSocket:</span>
-            <Tag :severity="connected ? 'success' : 'danger'" :value="connected ? 'Connected' : 'Disconnected'" />
+    <div v-else class="grid grid-cols-[300px_1fr] gap-5">
+      <div class="bg-cyber-surface border border-cyber-border rounded-lg p-5 h-fit">
+        <h3 class="text-cyber-accent font-bold mb-4">Progress</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between items-center py-2 border-b border-cyber-surface-2">
+            <span class="text-cyber-muted">Status:</span>
+            <span class="text-cyber-text font-bold text-sm">{{ statusLabel }}</span>
           </div>
-        </template>
-      </Card>
+          <div class="flex justify-between items-center py-2 border-b border-cyber-surface-2">
+            <span class="text-cyber-muted">Findings:</span>
+            <span class="text-cyber-text font-bold">{{ findings.length }}</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-cyber-surface-2">
+            <span class="text-cyber-muted">Endpoints:</span>
+            <span class="text-cyber-text font-bold">{{ endpoints.length }}</span>
+          </div>
+          <div class="flex justify-between items-center py-2">
+            <span class="text-cyber-muted">WebSocket:</span>
+            <span :class="connected ? 'text-cyber-accent' : 'text-cyber-danger'" class="font-bold text-sm">{{ connected ? 'Connected' : 'Disconnected' }}</span>
+          </div>
+        </div>
+      </div>
 
-      <Card class="findings-panel">
-        <template #title>Live Findings</template>
-        <template #content>
-          <FindingsFeed :findings="findings" />
-        </template>
-      </Card>
+      <div class="bg-cyber-surface border border-cyber-border rounded-lg p-5">
+        <h3 class="text-cyber-accent font-bold mb-4">Live Findings</h3>
+        <FindingsFeed :findings="findings" />
+      </div>
     </div>
   </div>
 </template>
@@ -57,11 +66,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
-import Button from 'primevue/button'
-import Card from 'primevue/card'
-import Tag from 'primevue/tag'
-import Message from 'primevue/message'
-import ProgressSpinner from 'primevue/progressspinner'
 import FindingsFeed from '../components/FindingsFeed.vue'
 
 const props = defineProps({ id: String })
@@ -82,26 +86,24 @@ const scanStarted = computed(() => store.scanStatus !== 'idle' && store.scanStat
 const statusLabel = computed(() => {
   const labels = {
     idle: 'Waiting...', pending: 'Pending', waf_check: 'Checking WAF',
-    reconnaissance: 'Analyzing tech stack',
-    strategize: 'Planning scan strategy',
-    scanning: 'Scanning...',
-    adaptive_scan: 'Scanning (adaptive)...',
-    dedup: 'Deduplicating findings',
-    llm_enrich: 'LLM enrichment', generating_report: 'Generating report',
-    completed: 'Completed', cancelled: 'Cancelled', failed: 'Failed',
+    reconnaissance: 'Analyzing tech stack', strategize: 'Planning scan strategy',
+    scanning: 'Scanning...', adaptive_scan: 'Scanning (adaptive)...',
+    dedup: 'Deduplicating findings', llm_enrich: 'LLM enrichment',
+    generating_report: 'Generating report', completed: 'Completed',
+    cancelled: 'Cancelled', failed: 'Failed',
   }
   return labels[scanStatus.value] || scanStatus.value
 })
 
-const statusSeverity = computed(() => {
+const statusDotClass = computed(() => {
   const map = {
-    scanning: 'warn', adaptive_scan: 'warn',
-    reconnaissance: 'info', strategize: 'info',
-    waf_check: 'info', dedup: 'info',
-    llm_enrich: 'info', generating_report: 'info',
-    completed: 'success', failed: 'danger', cancelled: 'secondary',
+    scanning: 'bg-yellow-400 animate-pulse-dot', adaptive_scan: 'bg-yellow-400 animate-pulse-dot',
+    reconnaissance: 'bg-yellow-400 animate-pulse-dot', strategize: 'bg-yellow-400 animate-pulse-dot',
+    waf_check: 'bg-yellow-400 animate-pulse-dot', dedup: 'bg-yellow-400 animate-pulse-dot',
+    llm_enrich: 'bg-yellow-400 animate-pulse-dot', generating_report: 'bg-yellow-400 animate-pulse-dot',
+    completed: 'bg-cyber-accent', failed: 'bg-cyber-danger', cancelled: 'bg-cyber-muted',
   }
-  return map[scanStatus.value] || 'info'
+  return map[scanStatus.value] || 'bg-cyber-muted-2'
 })
 
 onMounted(() => {
@@ -133,51 +135,17 @@ async function pollOnce() {
       const data = await store.getScanResults(sessionId)
       if (data && data.findings && data.findings.length) {
         const existingIds = new Set(store.findings.map(f => f.id))
-        for (const f of data.findings) {
-          if (!existingIds.has(f.id)) {
-            store.findings.push(f)
-          }
-        }
+        for (const f of data.findings) { if (!existingIds.has(f.id)) store.findings.push(f) }
       }
       if (data && data.endpoints && data.endpoints.length) {
         const existingIds = new Set(store.endpoints.map(e => e.id))
-        for (const ep of data.endpoints) {
-          if (!existingIds.has(ep.id)) {
-            store.endpoints.push(ep)
-          }
-        }
+        for (const ep of data.endpoints) { if (!existingIds.has(ep.id)) store.endpoints.push(ep) }
       }
     }
     pollAttempts.value++
     wsError.value = false
-  } catch (e) {
-    wsError.value = true
-  }
+  } catch (e) { wsError.value = true }
 }
 
-function goBack() {
-  store.reset()
-  router.push('/dashboard')
-}
+function goBack() { store.reset(); router.push('/dashboard') }
 </script>
-
-<style scoped>
-.live-scan { padding: 1.25rem 0; }
-.back-btn { margin-bottom: 1.25rem; }
-h1 { color: var(--p-primary-color); margin-bottom: 1.25rem; }
-.status-bar { margin-bottom: 1.25rem; }
-.status-bar-inner { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-.waiting-state {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 5rem 1.25rem; color: var(--p-surface-300);
-  text-align: center;
-}
-.waiting-state h2 { color: var(--p-surface-100); margin: 1rem 0 0.5rem; }
-.session-id { font-size: 0.8rem; color: var(--p-surface-400); margin-top: 0.625rem; font-family: monospace; }
-.scan-grid { display: grid; grid-template-columns: 300px 1fr; gap: 1.25rem; }
-.stats-panel { height: fit-content; }
-.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--p-surface-700); }
-.stat-label { color: var(--p-surface-300); }
-.stat-value { color: var(--p-surface-100); font-weight: bold; }
-.findings-panel :deep(.p-card-content) { padding: 0; }
-</style>

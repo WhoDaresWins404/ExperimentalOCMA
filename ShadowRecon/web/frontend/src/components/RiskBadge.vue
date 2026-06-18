@@ -1,24 +1,19 @@
 <template>
-  <Tag :severity="pvSeverity" :value="label" />
+  <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold whitespace-nowrap" :class="colorClass">{{ label }}</span>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import Tag from 'primevue/tag'
 
 const props = defineProps({ severity: { type: String, default: 'none' }, score: { type: Number, default: null } })
 
-const pvSeverity = computed(() => {
-  const s = props.severity.toLowerCase()
-  if (s === 'critical') return 'danger'
-  if (s === 'high') return 'warn'
-  if (s === 'medium') return 'info'
-  if (s === 'low') return 'success'
-  return 'secondary'
-})
+const severityMap = {
+  critical: 'bg-cyber-danger text-white',
+  high: 'bg-cyber-warning text-black',
+  medium: 'bg-cyber-medium text-black',
+  low: 'bg-cyber-accent text-black',
+}
 
-const label = computed(() => {
-  if (props.score != null) return props.score.toFixed(1)
-  return props.severity.toUpperCase()
-})
+const colorClass = computed(() => severityMap[props.severity.toLowerCase()] || 'bg-blue-500 text-white')
+const label = computed(() => props.score != null ? props.score.toFixed(1) : props.severity.toUpperCase())
 </script>

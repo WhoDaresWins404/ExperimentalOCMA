@@ -1,227 +1,267 @@
 <template>
-  <form @submit.prevent="handleSubmit" class="scan-form">
-    <div class="form-row">
-      <div class="form-group">
-        <label for="url">Target URL</label>
-        <InputText id="url" v-model="form.url" placeholder="https://example.com" required fluid />
+  <form @submit.prevent="handleSubmit" class="max-w-[700px] mx-auto space-y-4">
+    <div>
+      <label for="url" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Target URL</label>
+      <input id="url" v-model="form.url" type="text" placeholder="https://example.com" required
+        class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
+    </div>
+
+    <div class="flex gap-4">
+      <div class="flex-1">
+        <label for="campaign_name" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Campaign Name</label>
+        <input id="campaign_name" v-model="form.campaign_name" type="text" placeholder="Pentest Week 2024"
+          class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
+      </div>
+      <div class="flex-1">
+        <label for="campaign_desc" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Campaign Description</label>
+        <input id="campaign_desc" v-model="form.campaign_description" type="text" placeholder="Optional description"
+          class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="campaign_name">Campaign Name</label>
-        <InputText id="campaign_name" v-model="form.campaign_name" placeholder="Pentest Week 2024" fluid />
-      </div>
-      <div class="form-group">
-        <label for="campaign_desc">Campaign Description</label>
-        <InputText id="campaign_desc" v-model="form.campaign_description" placeholder="Optional description" fluid />
-      </div>
-    </div>
-
-    <div class="profile-row">
+    <div class="grid grid-cols-4 gap-2.5">
       <label v-for="p in profileDefs" :key="p.key"
-        :class="['profile-card', { active: scanProfile === p.key }]">
-        <input type="radio" v-model="scanProfile" :value="p.key" class="profile-radio" />
-        <div class="profile-title">{{ p.title }}</div>
-        <div class="profile-desc">{{ p.desc }}</div>
-        <div class="profile-badge" :class="'badge-' + p.key">{{ p.badge }}</div>
+        :class="['flex flex-col items-center gap-1 bg-cyber-surface border-2 rounded-lg p-3.5 text-center cursor-pointer transition-all relative', scanProfile === p.key ? 'border-cyber-accent bg-cyber-surface-2' : 'border-cyber-border hover:border-cyber-accent']">
+        <input type="radio" v-model="scanProfile" :value="p.key" class="absolute opacity-0 pointer-events-none" />
+        <div class="text-cyber-text font-bold text-sm">{{ p.title }}</div>
+        <div class="text-cyber-muted-2 text-xs leading-tight">{{ p.desc }}</div>
+        <div class="text-[0.6rem] uppercase tracking-wider px-2 py-0.5 rounded mt-1" :class="badgeClass(p.key)">{{ p.badge }}</div>
       </label>
     </div>
 
     <template v-if="scanProfile !== 'custom'">
-      <Accordion class="settings-accordion">
-        <AccordionPanel value="0">
-          <AccordionHeader>View Preset Settings</AccordionHeader>
-          <AccordionContent>
-            <div class="preset-summary">
-              <div class="summary-grid">
-                <div class="summary-item"><span class="si-label">Scan Mode</span><span class="si-val">{{ form.scan_mode === 'full' ? 'Full' : form.scan_mode === 'light' ? 'Light' : 'WAF Only' }}</span></div>
-                <div class="summary-item"><span class="si-label">Threads</span><span class="si-val">{{ form.threads }}</span></div>
-                <div class="summary-item"><span class="si-label">Crawl Depth</span><span class="si-val">{{ form.crawl_depth }}</span></div>
-                <div class="summary-item"><span class="si-label">XSS Mode</span><span class="si-val">{{ form.xss_mode === 'probe' ? 'Probe' : 'Exploit' }}</span></div>
-                <div class="summary-item"><span class="si-label">LLM Analysis</span><span class="si-val">{{ form.enable_llm ? 'On' : 'Off' }}</span></div>
-                <div class="summary-item"><span class="si-label">LLM Payloads</span><span class="si-val">{{ form.enable_llm_payloads ? 'On' : 'Off' }}</span></div>
-              </div>
+      <details class="bg-cyber-surface border border-cyber-border rounded-lg p-4 group">
+        <summary class="text-cyber-accent font-bold text-sm cursor-pointer outline-none select-none">View Preset Settings</summary>
+        <div class="mt-4 pt-3 border-t border-cyber-border">
+          <div class="grid grid-cols-2 gap-2">
+            <div class="flex justify-between items-center bg-cyber-bg rounded px-2.5 py-1.5">
+              <span class="text-cyber-muted-2 text-xs">Scan Mode</span>
+              <span class="text-cyber-text text-xs font-bold">{{ form.scan_mode === 'full' ? 'Full' : form.scan_mode === 'light' ? 'Light' : 'WAF Only' }}</span>
             </div>
-          </AccordionContent>
-        </AccordionPanel>
-      </Accordion>
+            <div class="flex justify-between items-center bg-cyber-bg rounded px-2.5 py-1.5">
+              <span class="text-cyber-muted-2 text-xs">Threads</span>
+              <span class="text-cyber-text text-xs font-bold">{{ form.threads }}</span>
+            </div>
+            <div class="flex justify-between items-center bg-cyber-bg rounded px-2.5 py-1.5">
+              <span class="text-cyber-muted-2 text-xs">Crawl Depth</span>
+              <span class="text-cyber-text text-xs font-bold">{{ form.crawl_depth }}</span>
+            </div>
+            <div class="flex justify-between items-center bg-cyber-bg rounded px-2.5 py-1.5">
+              <span class="text-cyber-muted-2 text-xs">XSS Mode</span>
+              <span class="text-cyber-text text-xs font-bold">{{ form.xss_mode === 'probe' ? 'Probe' : 'Exploit' }}</span>
+            </div>
+            <div class="flex justify-between items-center bg-cyber-bg rounded px-2.5 py-1.5">
+              <span class="text-cyber-muted-2 text-xs">LLM Analysis</span>
+              <span class="text-cyber-text text-xs font-bold">{{ form.enable_llm ? 'On' : 'Off' }}</span>
+            </div>
+            <div class="flex justify-between items-center bg-cyber-bg rounded px-2.5 py-1.5">
+              <span class="text-cyber-muted-2 text-xs">LLM Payloads</span>
+              <span class="text-cyber-text text-xs font-bold">{{ form.enable_llm_payloads ? 'On' : 'Off' }}</span>
+            </div>
+          </div>
+        </div>
+      </details>
 
-      <div class="form-row options-row">
-        <div class="flex align-items-center gap-2">
-          <Checkbox v-model="form.enable_proxy" :binary="true" input-id="enable_proxy" />
-          <label for="enable_proxy">Enable Proxy Chain</label>
-        </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <label class="flex items-center gap-1.5 cursor-pointer bg-cyber-surface border border-cyber-border rounded px-3.5 py-2 hover:border-cyber-accent transition-colors">
+          <input type="checkbox" v-model="form.enable_proxy" class="accent-cyber-accent" />
+          <span class="text-cyber-text text-sm">Enable Proxy Chain</span>
+        </label>
       </div>
 
-      <div class="form-section-title">Authentication</div>
-      <div class="form-row">
-        <div class="form-group small">
-          <label for="auth_type">Auth Type</label>
-          <Select id="auth_type" v-model="form.auth_type" :options="authOptions" option-value="value" option-label="label" fluid />
-        </div>
+      <div class="text-cyber-muted-2 text-xs uppercase tracking-wider mt-4 mb-2">Authentication</div>
+      <div class="w-48">
+        <select v-model="form.auth_type"
+          class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors cursor-pointer">
+          <option value="none">None</option>
+          <option value="cookie">Cookie</option>
+          <option value="bearer">Bearer Token</option>
+          <option value="header">Custom Header</option>
+          <option value="basic">Basic Auth</option>
+        </select>
       </div>
 
-      <div v-if="form.auth_type === 'cookie'" class="form-row">
-        <div class="form-group">
-          <label for="auth_cookie">Cookie String</label>
-          <InputText id="auth_cookie" v-model="form.auth_cookie_string" placeholder="session=abc123; token=xyz" fluid />
+      <div v-if="form.auth_type === 'cookie'" class="flex gap-4">
+        <div class="flex-1">
+          <label for="auth_cookie" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Cookie String</label>
+          <input id="auth_cookie" v-model="form.auth_cookie_string" type="text" placeholder="session=abc123; token=xyz"
+            class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
         </div>
       </div>
-      <div v-if="form.auth_type === 'bearer'" class="form-row">
-        <div class="form-group">
-          <label for="auth_bearer">Bearer Token</label>
-          <InputText id="auth_bearer" v-model="form.auth_bearer_token" placeholder="eyJhbGci..." fluid />
+      <div v-if="form.auth_type === 'bearer'" class="flex gap-4">
+        <div class="flex-1">
+          <label for="auth_bearer" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Bearer Token</label>
+          <input id="auth_bearer" v-model="form.auth_bearer_token" type="text" placeholder="eyJhbGci..."
+            class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
         </div>
       </div>
-      <div v-if="form.auth_type === 'header'" class="form-row">
-        <div class="form-group small">
-          <label for="auth_hdr_key">Header Key</label>
-          <InputText id="auth_hdr_key" v-model="form.auth_header_key" placeholder="X-API-Key" fluid />
+      <div v-if="form.auth_type === 'header'" class="flex gap-4">
+        <div class="flex-1">
+          <label for="auth_hdr_key" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Header Key</label>
+          <input id="auth_hdr_key" v-model="form.auth_header_key" type="text" placeholder="X-API-Key"
+            class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
         </div>
-        <div class="form-group small">
-          <label for="auth_hdr_val">Header Value</label>
-          <InputText id="auth_hdr_val" v-model="form.auth_header_value" placeholder="YourValue123" fluid />
+        <div class="flex-1">
+          <label for="auth_hdr_val" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Header Value</label>
+          <input id="auth_hdr_val" v-model="form.auth_header_value" type="text" placeholder="YourValue123"
+            class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
         </div>
       </div>
-      <div v-if="form.auth_type === 'basic'" class="form-row">
-        <div class="form-group small">
-          <label for="auth_basic_user">Username</label>
-          <InputText id="auth_basic_user" v-model="form.auth_basic_username" placeholder="admin" fluid />
+      <div v-if="form.auth_type === 'basic'" class="flex gap-4">
+        <div class="flex-1">
+          <label for="auth_basic_user" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Username</label>
+          <input id="auth_basic_user" v-model="form.auth_basic_username" type="text" placeholder="admin"
+            class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
         </div>
-        <div class="form-group small">
-          <label for="auth_basic_pass">Password</label>
-          <InputText id="auth_basic_pass" v-model="form.auth_basic_password" type="password" placeholder="********" fluid />
+        <div class="flex-1">
+          <label for="auth_basic_pass" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Password</label>
+          <input id="auth_basic_pass" v-model="form.auth_basic_password" type="password" placeholder="********"
+            class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
         </div>
       </div>
     </template>
 
     <template v-else>
-      <Accordion :value="['0']" class="settings-accordion">
-        <AccordionPanel value="0">
-          <AccordionHeader>All Settings</AccordionHeader>
-          <AccordionContent>
-            <div class="form-row options-row">
-              <div class="flex align-items-center gap-3">
-                <div class="flex align-items-center gap-2">
-                  <Checkbox v-model="form.enable_proxy" :binary="true" input-id="enable_proxy_c" />
-                  <label for="enable_proxy_c">Enable Proxy Chain</label>
-                </div>
-                <div class="flex align-items-center gap-2">
-                  <Checkbox v-model="form.enable_llm" :binary="true" input-id="enable_llm_c" />
-                  <label for="enable_llm_c">Enable LLM Analysis</label>
-                </div>
-                <Button :label="llmTesting ? 'Testing...' : 'Test LLM'" severity="secondary" size="small" :loading="llmTesting" @click="testLlm" />
-                <Tag v-if="llmResult" :severity="llmSeverity" :value="llmStatusText" :title="llmResult.error || ''" />
-              </div>
-            </div>
+      <details open class="bg-cyber-surface border border-cyber-border rounded-lg p-4 group">
+        <summary class="text-cyber-accent font-bold text-sm cursor-pointer outline-none select-none">All Settings</summary>
+        <div class="mt-4 pt-3 border-t border-cyber-border space-y-4">
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="flex items-center gap-1.5 cursor-pointer bg-cyber-surface-2 border border-cyber-border rounded px-3.5 py-2 hover:border-cyber-accent transition-colors">
+              <input type="checkbox" v-model="form.enable_proxy" class="accent-cyber-accent" />
+              <span class="text-cyber-text text-sm">Enable Proxy Chain</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer bg-cyber-surface-2 border border-cyber-border rounded px-3.5 py-2 hover:border-cyber-accent transition-colors">
+              <input type="checkbox" v-model="form.enable_llm" class="accent-cyber-accent" />
+              <span class="text-cyber-text text-sm">Enable LLM Analysis</span>
+            </label>
+            <button type="button" :disabled="llmTesting" @click="testLlm"
+              class="bg-cyber-surface-2 border border-cyber-border text-cyber-text px-3.5 py-2 rounded text-xs cursor-pointer hover:bg-cyber-surface hover:text-cyber-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              {{ llmTesting ? 'Testing...' : 'Test LLM' }}
+            </button>
+            <span v-if="llmResult"
+              :class="['text-xs px-2.5 py-1 rounded', llmResult.reachable && llmResult.model_found ? 'bg-green-900 text-green-400' : llmResult.reachable ? 'bg-yellow-900 text-yellow-400' : 'bg-red-900 text-red-400']"
+              :title="llmResult.error || ''">
+              {{ llmResult.reachable && llmResult.model_found ? `LLM OK (${llmResult.model})` : (llmResult.error ? 'LLM: ' + llmResult.error : 'LLM unreachable') }}
+            </span>
+          </div>
 
-            <div class="form-row">
-              <div class="form-group small">
-                <label for="threads">Threads</label>
-                <InputNumber id="threads" v-model="form.threads" :min="1" :max="100" fluid />
-              </div>
-              <div class="form-group small">
-                <label for="timeout">Timeout (s)</label>
-                <InputNumber id="timeout" v-model="form.timeout" :min="5" :max="120" fluid />
-              </div>
-              <div class="form-group small">
-                <label for="detection_mode">Detection Mode</label>
-                <Select id="detection_mode" v-model="form.detection_mode" :options="detectionModeOptions" option-value="value" option-label="label" fluid />
-              </div>
+          <div class="flex gap-4">
+            <div class="w-28">
+              <label for="threads" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Threads</label>
+              <input id="threads" v-model.number="form.threads" type="number" min="1" max="100"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
             </div>
+            <div class="w-28">
+              <label for="timeout" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Timeout (s)</label>
+              <input id="timeout" v-model.number="form.timeout" type="number" min="5" max="120"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
+            </div>
+            <div class="w-36">
+              <label for="detection_mode" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Detection Mode</label>
+              <select id="detection_mode" v-model="form.detection_mode"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors cursor-pointer">
+                <option value="detect">Detection</option>
+                <option value="confirm">Confirmation</option>
+              </select>
+            </div>
+          </div>
 
-            <div class="form-section-title">Scan Mode</div>
-            <div class="form-row scan-mode-row">
-              <div v-for="m in scanModeOptions" :key="m.value" class="flex align-items-center gap-2 scan-mode-item">
-                <RadioButton v-model="form.scan_mode" :value="m.value" :input-id="'sm_' + m.value" />
-                <label :for="'sm_' + m.value">
-                  <span class="radio-title">{{ m.label }}</span>
-                  <span class="radio-desc">{{ m.desc }}</span>
-                </label>
-              </div>
-            </div>
+          <div class="text-cyber-muted-2 text-xs uppercase tracking-wider">Scan Mode</div>
+          <div class="flex gap-2.5">
+            <label v-for="m in scanModeOptions" :key="m.value"
+              class="flex-1 flex flex-col gap-0.5 bg-cyber-surface-2 border border-cyber-border rounded px-3 py-2 cursor-pointer hover:border-cyber-accent transition-colors">
+              <input type="radio" v-model="form.scan_mode" :value="m.value" class="accent-cyber-accent" />
+              <span class="text-cyber-text text-sm font-bold">{{ m.label }}</span>
+              <span class="text-cyber-muted-2 text-xs">{{ m.desc }}</span>
+            </label>
+          </div>
 
-            <div class="form-section-title">Authentication</div>
-            <div class="form-row">
-              <div class="form-group small">
-                <label for="auth_type_c">Auth Type</label>
-                <Select id="auth_type_c" v-model="form.auth_type" :options="authOptions" option-value="value" option-label="label" fluid />
-              </div>
-            </div>
+          <div class="text-cyber-muted-2 text-xs uppercase tracking-wider">Authentication</div>
+          <div class="w-48">
+            <select v-model="form.auth_type"
+              class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors cursor-pointer">
+              <option value="none">None</option>
+              <option value="cookie">Cookie</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="header">Custom Header</option>
+              <option value="basic">Basic Auth</option>
+            </select>
+          </div>
 
-            <div v-if="form.auth_type === 'cookie'" class="form-row">
-              <div class="form-group">
-                <label for="auth_cookie_c">Cookie String</label>
-                <InputText id="auth_cookie_c" v-model="form.auth_cookie_string" placeholder="session=abc123; token=xyz" fluid />
-              </div>
+          <div v-if="form.auth_type === 'cookie'" class="flex gap-4">
+            <div class="flex-1">
+              <label for="auth_cookie_c" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Cookie String</label>
+              <input id="auth_cookie_c" v-model="form.auth_cookie_string" type="text" placeholder="session=abc123; token=xyz"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
             </div>
-            <div v-if="form.auth_type === 'bearer'" class="form-row">
-              <div class="form-group">
-                <label for="auth_bearer_c">Bearer Token</label>
-                <InputText id="auth_bearer_c" v-model="form.auth_bearer_token" placeholder="eyJhbGci..." fluid />
-              </div>
+          </div>
+          <div v-if="form.auth_type === 'bearer'" class="flex gap-4">
+            <div class="flex-1">
+              <label for="auth_bearer_c" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Bearer Token</label>
+              <input id="auth_bearer_c" v-model="form.auth_bearer_token" type="text" placeholder="eyJhbGci..."
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
             </div>
-            <div v-if="form.auth_type === 'header'" class="form-row">
-              <div class="form-group small">
-                <label for="auth_hdr_key_c">Header Key</label>
-                <InputText id="auth_hdr_key_c" v-model="form.auth_header_key" placeholder="X-API-Key" fluid />
-              </div>
-              <div class="form-group small">
-                <label for="auth_hdr_val_c">Header Value</label>
-                <InputText id="auth_hdr_val_c" v-model="form.auth_header_value" placeholder="YourValue123" fluid />
-              </div>
+          </div>
+          <div v-if="form.auth_type === 'header'" class="flex gap-4">
+            <div class="flex-1">
+              <label for="auth_hdr_key_c" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Header Key</label>
+              <input id="auth_hdr_key_c" v-model="form.auth_header_key" type="text" placeholder="X-API-Key"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
             </div>
-            <div v-if="form.auth_type === 'basic'" class="form-row">
-              <div class="form-group small">
-                <label for="auth_basic_user_c">Username</label>
-                <InputText id="auth_basic_user_c" v-model="form.auth_basic_username" placeholder="admin" fluid />
-              </div>
-              <div class="form-group small">
-                <label for="auth_basic_pass_c">Password</label>
-                <InputText id="auth_basic_pass_c" v-model="form.auth_basic_password" type="password" placeholder="********" fluid />
-              </div>
+            <div class="flex-1">
+              <label for="auth_hdr_val_c" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Header Value</label>
+              <input id="auth_hdr_val_c" v-model="form.auth_header_value" type="text" placeholder="YourValue123"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
             </div>
+          </div>
+          <div v-if="form.auth_type === 'basic'" class="flex gap-4">
+            <div class="flex-1">
+              <label for="auth_basic_user_c" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Username</label>
+              <input id="auth_basic_user_c" v-model="form.auth_basic_username" type="text" placeholder="admin"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
+            </div>
+            <div class="flex-1">
+              <label for="auth_basic_pass_c" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Password</label>
+              <input id="auth_basic_pass_c" v-model="form.auth_basic_password" type="password" placeholder="********"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
+            </div>
+          </div>
 
-            <div class="form-section-title">Crawling & XSS Detection</div>
-            <div class="form-row">
-              <div class="form-group small">
-                <label for="crawl_depth">Crawl Depth</label>
-                <InputNumber id="crawl_depth" v-model="form.crawl_depth" :min="0" :max="5" fluid />
-              </div>
-              <div class="form-group small">
-                <label for="xss_mode">XSS Mode</label>
-                <Select id="xss_mode" v-model="form.xss_mode" :options="xssModeOptions" option-value="value" option-label="label" fluid />
-              </div>
+          <div class="text-cyber-muted-2 text-xs uppercase tracking-wider">Crawling &amp; XSS Detection</div>
+          <div class="flex gap-4">
+            <div class="w-28">
+              <label for="crawl_depth" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">Crawl Depth</label>
+              <input id="crawl_depth" v-model.number="form.crawl_depth" type="number" min="0" max="5"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
             </div>
-            <div class="form-row" v-if="form.xss_mode === 'exploit'">
-              <div class="flex align-items-center gap-2">
-                <Checkbox v-model="form.enable_llm_payloads" :binary="true" input-id="enable_llm_payloads" />
-                <label for="enable_llm_payloads">Enable LLM Payload Generation (opt-in, 120s timeout)</label>
-              </div>
+            <div class="w-52">
+              <label for="xss_mode" class="block text-cyber-muted text-xs uppercase tracking-wide mb-1">XSS Mode</label>
+              <select id="xss_mode" v-model="form.xss_mode"
+                class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors cursor-pointer">
+                <option value="probe">Probe Only (safe)</option>
+                <option value="exploit">Exploit (LLM payloads)</option>
+              </select>
             </div>
-          </AccordionContent>
-        </AccordionPanel>
-      </Accordion>
+          </div>
+          <div v-if="form.xss_mode === 'exploit'" class="flex items-center gap-2">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" v-model="form.enable_llm_payloads" class="accent-cyber-accent" />
+              <span class="text-cyber-text text-sm">Enable LLM Payload Generation (opt-in, 120s timeout)</span>
+            </label>
+          </div>
+        </div>
+      </details>
     </template>
 
-    <Button type="submit" :loading="submitting" label="Start Scan" class="submit-btn" />
+    <button type="submit" :disabled="submitting"
+      class="w-full bg-cyber-accent text-cyber-bg font-bold py-3.5 rounded text-base cursor-pointer hover:bg-[#00b8d4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+      {{ submitting ? 'Starting Scan...' : 'Start Scan' }}
+    </button>
   </form>
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed } from 'vue'
-import InputText from 'primevue/inputtext'
-import InputNumber from 'primevue/inputnumber'
-import Select from 'primevue/select'
-import Checkbox from 'primevue/checkbox'
-import RadioButton from 'primevue/radiobutton'
-import Button from 'primevue/button'
-import Tag from 'primevue/tag'
-import Accordion from 'primevue/accordion'
-import AccordionPanel from 'primevue/accordionpanel'
-import AccordionHeader from 'primevue/accordionheader'
-import AccordionContent from 'primevue/accordioncontent'
+import { ref, reactive, watch } from 'vue'
 
 const emit = defineEmits(['start'])
 const props = defineProps({ campaignId: String })
@@ -244,28 +284,10 @@ const profileDefs = [
   { key: 'custom',   title: 'Custom',    desc: 'Fine-tune every setting',             badge: 'manual' },
 ]
 
-const authOptions = [
-  { label: 'None', value: 'none' },
-  { label: 'Cookie', value: 'cookie' },
-  { label: 'Bearer Token', value: 'bearer' },
-  { label: 'Custom Header', value: 'header' },
-  { label: 'Basic Auth', value: 'basic' },
-]
-
 const scanModeOptions = [
   { label: 'Full Scan', value: 'full', desc: 'All scanners, maximum coverage' },
   { label: 'Light Scan', value: 'light', desc: 'Directory + misconfig + crawl' },
   { label: 'WAF Only', value: 'waf_only', desc: 'Detect WAF, skip all other scans' },
-]
-
-const detectionModeOptions = [
-  { label: 'Detection', value: 'detect' },
-  { label: 'Confirmation', value: 'confirm' },
-]
-
-const xssModeOptions = [
-  { label: 'Probe Only (safe)', value: 'probe' },
-  { label: 'Exploit (LLM payloads)', value: 'exploit' },
 ]
 
 const scanProfile = ref('standard')
@@ -299,19 +321,14 @@ watch(scanProfile, (profile) => {
   }
 })
 
-const llmSeverity = computed(() => {
-  if (!llmResult.value) return null
-  if (llmResult.value.reachable && llmResult.value.model_found) return 'success'
-  if (llmResult.value.reachable) return 'warn'
-  return 'danger'
-})
-
-const llmStatusText = computed(() => {
-  if (!llmResult.value) return ''
-  if (llmResult.value.reachable && llmResult.value.model_found) return `LLM OK (${llmResult.value.model})`
-  if (llmResult.value.error) return `LLM: ${llmResult.value.error}`
-  return 'LLM unreachable'
-})
+function badgeClass(key) {
+  return {
+    quick: 'bg-green-900 text-green-400',
+    standard: 'bg-cyan-900 text-cyber-accent',
+    deep: 'bg-red-900 text-red-400',
+    custom: 'bg-purple-900 text-purple-300',
+  }[key] || ''
+}
 
 async function testLlm() {
   llmTesting.value = true
@@ -336,60 +353,3 @@ async function handleSubmit() {
   }
 }
 </script>
-
-<style scoped>
-.scan-form { max-width: 700px; margin: 0 auto; }
-.form-row { display: flex; gap: 0.9375rem; margin-bottom: 0.9375rem; }
-.form-group { flex: 1; display: flex; flex-direction: column; gap: 0.3125rem; }
-.form-group.small { flex: 0 0 auto; min-width: 120px; }
-.form-group label { color: var(--p-surface-300); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px; }
-
-.options-row { flex-wrap: wrap; align-items: center; }
-
-.profile-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.625rem; margin-bottom: 1.25rem; }
-.profile-card {
-  display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
-  background: var(--p-surface-600); border: 2px solid var(--p-surface-500); border-radius: 8px;
-  padding: 0.875rem 0.625rem; cursor: pointer; transition: all 0.2s; text-align: center;
-  position: relative;
-}
-.profile-card:hover { border-color: var(--p-primary-color); }
-.profile-card.active { border-color: var(--p-primary-color); background: var(--p-surface-700); }
-.profile-radio { position: absolute; opacity: 0; pointer-events: none; }
-.profile-title { color: var(--p-surface-100); font-weight: bold; font-size: 0.95em; }
-.profile-desc { color: var(--p-surface-400); font-size: 0.7em; line-height: 1.3; }
-.profile-badge {
-  font-size: 0.6em; text-transform: uppercase; letter-spacing: 1px;
-  padding: 2px 8px; border-radius: 4px; margin-top: 4px;
-}
-.badge-quick { background: #1a3a1a; color: #69f0ae; }
-.badge-standard { background: #1a2a3a; color: var(--p-primary-color); }
-.badge-deep { background: #3a1a1a; color: #ff5252; }
-.badge-custom { background: #2a1a3a; color: #b388ff; }
-
-.settings-accordion { margin-bottom: 0.9375rem; }
-
-.preset-summary { padding: 0.3125rem 0; }
-.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-.summary-item { display: flex; justify-content: space-between; padding: 0.375rem 0.625rem; background: var(--p-surface-800); border-radius: 4px; }
-.si-label { color: var(--p-surface-400); font-size: 0.8em; }
-.si-val { color: var(--p-surface-100); font-size: 0.85em; font-weight: bold; }
-
-.scan-mode-row { display: flex; gap: 0.625rem; }
-.scan-mode-item {
-  flex: 1; background: var(--p-surface-600); border: 1px solid var(--p-surface-500);
-  border-radius: 5px; padding: 0.5rem 0.75rem; cursor: pointer;
-}
-.scan-mode-item:hover { border-color: var(--p-primary-color); }
-.radio-title { color: var(--p-surface-100); font-size: 0.85em; font-weight: 600; display: block; }
-.radio-desc { color: var(--p-surface-400); font-size: 0.75em; }
-
-.form-section-title { color: var(--p-surface-400); font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; margin: 0.9375rem 0 0.5rem 0; }
-
-.submit-btn { width: 100%; margin-top: 0.625rem; }
-
-.flex { display: flex; }
-.align-items-center { align-items: center; }
-.gap-2 { gap: 0.5rem; }
-.gap-3 { gap: 0.75rem; }
-</style>

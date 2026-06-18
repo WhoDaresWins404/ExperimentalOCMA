@@ -1,37 +1,33 @@
 <template>
-  <div class="dashboard">
-    <div class="header-section">
-      <h1>ShadowRecon Dashboard</h1>
-      <p class="subtitle">Web Application Security Scanner</p>
+  <div class="py-5">
+    <div class="mb-8">
+      <h1 class="text-cyber-accent text-4xl font-bold">ShadowRecon Dashboard</h1>
+      <p class="text-cyber-muted mt-1">Web Application Security Scanner</p>
     </div>
 
-    <Card class="scan-form-card">
-      <template #title>New Scan</template>
-      <template #content>
-        <ScanForm @start="handleStartScan" />
-      </template>
-    </Card>
+    <div class="bg-cyber-surface border border-cyber-border rounded-lg p-6 mb-8">
+      <h2 class="text-cyber-accent font-bold text-lg mb-4">New Scan</h2>
+      <ScanForm @start="handleStartScan" />
+    </div>
 
-    <div class="campaigns-section">
-      <h2>Campaigns</h2>
-      <div v-if="campaigns.length === 0" class="empty-state">
+    <div>
+      <h2 class="text-cyber-accent font-bold text-lg mb-4">Campaigns</h2>
+      <div v-if="campaigns.length === 0" class="bg-cyber-surface border border-dashed border-cyber-border rounded-lg py-10 text-center text-cyber-muted-2">
         No campaigns yet. Start a scan above.
       </div>
-      <div v-else class="campaign-list">
-        <Card v-for="c in campaigns" :key="c.id" class="campaign-card" @click="$router.push(`/campaign/${c.id}`)">
-          <template #title>
-            <div class="campaign-card-header">
-              <div class="campaign-name">{{ c.name }}</div>
-              <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click.stop="deleteCampaign(c.id)" />
-            </div>
-          </template>
-          <template #content>
-            <div class="campaign-meta">{{ c.description || 'No description' }} &middot; {{ new Date(c.created_at).toLocaleDateString() }}</div>
-            <div class="campaign-tags">
-              <Tag v-for="tag in c.tags" :key="tag" :value="tag" severity="info" />
-            </div>
-          </template>
-        </Card>
+      <div v-else class="grid gap-3">
+        <div v-for="c in campaigns" :key="c.id" @click="$router.push(`/campaign/${c.id}`)"
+          class="bg-cyber-surface border border-cyber-border rounded-lg p-5 cursor-pointer transition-all hover:border-cyber-accent">
+          <div class="flex justify-between items-center">
+            <div class="text-cyber-text font-bold text-lg">{{ c.name }}</div>
+            <button @click.stop="deleteCampaign(c.id)" title="Delete campaign"
+              class="bg-transparent border border-red-800 text-cyber-danger rounded px-2 py-0.5 text-sm cursor-pointer hover:bg-red-900 hover:text-white transition-colors">&times;</button>
+          </div>
+          <div class="text-cyber-muted text-sm mt-1">{{ c.description || 'No description' }} &middot; {{ new Date(c.created_at).toLocaleDateString() }}</div>
+          <div class="flex gap-1.5 mt-2 flex-wrap">
+            <span v-for="tag in c.tags" :key="tag" class="bg-cyber-border text-cyber-accent px-2.5 py-0.5 rounded-full text-xs">{{ tag }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -41,9 +37,6 @@
 import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
-import Card from 'primevue/card'
-import Button from 'primevue/button'
-import Tag from 'primevue/tag'
 import ScanForm from '../components/ScanForm.vue'
 import axios from 'axios'
 
@@ -52,50 +45,21 @@ const router = useRouter()
 const campaigns = computed(() => store.campaigns)
 const API = ''
 
-onMounted(() => {
-  store.fetchCampaigns()
-})
+onMounted(() => { store.fetchCampaigns() })
 
 async function deleteCampaign(id) {
   if (!confirm('Delete this campaign and all its scans?')) return
   try {
     await axios.delete(`${API}/api/campaigns/${id}`)
     store.fetchCampaigns()
-  } catch (e) {
-    console.error('Failed to delete campaign:', e)
-  }
+  } catch (e) { console.error('Failed to delete campaign:', e) }
 }
 
 async function handleStartScan(params) {
   try {
     const result = await store.startScan(params)
-    if (result.session_id) {
-      router.push(`/scan/${result.session_id}`)
-    } else if (result.campaign_id) {
-      router.push(`/campaign/${result.campaign_id}`)
-    }
-  } catch (e) {
-    console.error('Failed to start scan:', e)
-  }
+    if (result.session_id) router.push(`/scan/${result.session_id}`)
+    else if (result.campaign_id) router.push(`/campaign/${result.campaign_id}`)
+  } catch (e) { console.error('Failed to start scan:', e) }
 }
 </script>
-
-<style scoped>
-.dashboard { padding: 1.25rem 0; }
-.header-section { margin-bottom: 1.875rem; }
-.header-section h1 { color: var(--p-primary-color); font-size: 2rem; }
-.subtitle { color: var(--p-surface-300); margin-top: 0.3125rem; }
-.scan-form-card { margin-bottom: 1.875rem; }
-.campaigns-section h2 { color: var(--p-primary-color); margin-bottom: 0.9375rem; }
-.empty-state {
-  background: var(--p-surface-600); border-radius: 8px; padding: 2.5rem;
-  text-align: center; color: var(--p-surface-400); border: 1px dashed var(--p-surface-500);
-}
-.campaign-list { display: grid; gap: 0.75rem; }
-.campaign-card { cursor: pointer; transition: all 0.2s; }
-.campaign-card:hover { border-color: var(--p-primary-color); }
-.campaign-card-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.campaign-name { color: var(--p-surface-100); font-weight: 700; font-size: 1.1rem; }
-.campaign-meta { color: var(--p-surface-300); font-size: 0.85rem; margin-top: 0.3125rem; }
-.campaign-tags { margin-top: 0.5rem; display: flex; gap: 0.375rem; flex-wrap: wrap; }
-</style>

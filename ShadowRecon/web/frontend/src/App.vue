@@ -1,55 +1,16 @@
 <template>
-  <div class="app">
-    <Toolbar class="app-toolbar">
-      <template #start>
-        <div class="nav-brand" @click="$router.push('/dashboard')">
-          <span class="brand-icon pi pi-shield"></span>
-          <span class="brand-text">ShadowRecon</span>
-        </div>
-      </template>
-      <template #end>
-        <Button label="Dashboard" icon="pi pi-home" text @click="$router.push('/dashboard')" />
-      </template>
-    </Toolbar>
-    <main class="main-content">
+  <div class="min-h-screen flex flex-col bg-cyber-bg text-cyber-text">
+    <nav class="bg-gradient-to-r from-[#0d1b2a] to-[#1b2838] px-8 py-3.5 flex items-center justify-between border-b border-cyber-border">
+      <div class="flex items-center gap-2 text-cyber-accent text-xl font-bold cursor-pointer select-none" @click="$router.push('/dashboard')">
+        <span class="text-xl leading-none">&#9670;</span>
+        ShadowRecon
+      </div>
+      <div class="flex items-center gap-5">
+        <router-link to="/dashboard" class="text-cyber-muted hover:text-cyber-accent text-sm no-underline transition-colors">Dashboard</router-link>
+      </div>
+    </nav>
+    <main class="flex-1 p-6 max-w-[1400px] mx-auto w-full">
       <router-view />
     </main>
   </div>
 </template>
-
-<script setup>
-import Toolbar from 'primevue/toolbar'
-import Button from 'primevue/button'
-</script>
-
-<style scoped>
-.app {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-.app-toolbar {
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
-  border-top: none;
-  padding: 0.75rem 2rem;
-}
-.nav-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  color: var(--p-primary-color);
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-.brand-icon { font-size: 1.3rem; }
-.main-content {
-  flex: 1;
-  padding: 1.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-}
-</style>

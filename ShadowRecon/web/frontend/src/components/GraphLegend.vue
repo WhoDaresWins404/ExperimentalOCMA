@@ -1,8 +1,8 @@
 <template>
-  <div class="graph-legend">
-    <div v-for="item in items" :key="item.type" class="legend-row">
-      <span class="legend-dot" :style="{ background: item.color }"></span>
-      <span class="legend-label">{{ item.label }}</span>
+  <div class="flex flex-col gap-1.5 p-2.5">
+    <div v-for="item in items" :key="item.type" class="flex items-center gap-2">
+      <span class="w-3 h-3 rounded-full flex-shrink-0" :style="{ background: item.color }"></span>
+      <span class="text-cyber-muted text-sm">{{ item.label }}</span>
     </div>
   </div>
 </template>
@@ -24,27 +24,3 @@ defineProps({
   },
 })
 </script>
-
-<style scoped>
-.graph-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3125rem;
-  padding: 0.625rem;
-}
-.legend-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.legend-label {
-  color: var(--p-surface-300);
-  font-size: 0.85em;
-}
-</style>
