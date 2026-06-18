@@ -11,6 +11,7 @@ class ScanStatus(str, Enum):
     WAF_CHECK = "waf_check"
     RECONNAISSANCE = "reconnaissance"
     STRATEGIZE = "strategize"
+    SCANNING = "scanning"
     ADAPTIVE_SCAN = "adaptive_scan"
     DEDUP = "dedup"
     LLM_ENRICH = "llm_enrich"
