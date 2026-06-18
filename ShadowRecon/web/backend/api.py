@@ -305,8 +305,6 @@ def create_app(config: ScanConfig = None) -> FastAPI:
 
     @app.post("/api/llm/analyze-finding/{session_id}/{finding_id}")
     async def analyze_finding(session_id: str, finding_id: str):
-        if not config.llm.enabled:
-            raise HTTPException(400, "LLM is not enabled")
         findings = await engine.db.get_session_findings(session_id)
         finding_data = next((f for f in findings if f.get("id") == finding_id), None)
         if not finding_data:
@@ -325,8 +323,11 @@ def create_app(config: ScanConfig = None) -> FastAPI:
             remediation=finding_data.get("remediation", ""),
             confidence=finding_data.get("confidence", 1.0),
         )
+        llm_config = config.llm.model_copy(deep=True)
+        llm_config.enabled = True
         from llm.enhancer import LLMEnhancer
         enhancer = LLMEnhancer(config)
+        enhancer.config = llm_config
         analysis = await enhancer.analyze_finding(finding)
         if "error" in analysis:
             return {"error": analysis["error"]}
@@ -335,8 +336,6 @@ def create_app(config: ScanConfig = None) -> FastAPI:
 
     @app.post("/api/llm/analyze-scan/{session_id}")
     async def analyze_scan(session_id: str):
-        if not config.llm.enabled:
-            raise HTTPException(400, "LLM is not enabled")
         session = await engine.session_mgr.get(session_id)
         if not session:
             raise HTTPException(404, "Session not found")
@@ -354,8 +353,11 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                 remediation=fd.get("remediation", ""), confidence=fd.get("confidence", 1.0),
             ) for fd in findings_data
         ]
+        llm_config = config.llm.model_copy()
+        llm_config.enabled = True
         from llm.enhancer import LLMEnhancer
         enhancer = LLMEnhancer(config)
+        enhancer.config = llm_config
         target = session.get("target", "unknown")
         analysis = await enhancer.comprehensive_summary(findings, target)
         if "error" in analysis:
