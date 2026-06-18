@@ -1,14 +1,19 @@
 <template>
   <div class="llm-summary">
-    <div v-for="(section, idx) in sections" :key="idx" :class="['section-card', sectionClass(section.heading)]">
-      <div class="section-heading">{{ section.heading }}</div>
-      <div class="section-body">{{ section.body }}</div>
-    </div>
+    <Card v-for="(section, idx) in sections" :key="idx" :class="['section-card', sectionClass(section.heading)]">
+      <template #title>
+        <div class="section-heading">{{ section.heading }}</div>
+      </template>
+      <template #content>
+        <div class="section-body">{{ section.body }}</div>
+      </template>
+    </Card>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import Card from 'primevue/card'
 
 const props = defineProps({ text: { type: String, default: '' } })
 
@@ -45,13 +50,13 @@ function sectionClass(heading) {
 </script>
 
 <style scoped>
-.llm-summary { display: flex; flex-direction: column; gap: 16px; }
-.section-card { background: #111927; border-radius: 8px; padding: 20px; border-left: 4px solid #1e3a5f; }
-.section-heading { color: #00e5ff; font-weight: bold; font-size: 1em; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
-.section-body { color: #b0b0b0; font-size: 0.88em; line-height: 1.7; white-space: pre-wrap; }
-.card-exec { border-left-color: #00e5ff; }
-.card-critical { border-left-color: #ff1744; }
-.card-medium { border-left-color: #ffd600; }
-.card-narrative { border-left-color: #ff9100; }
-.card-action { border-left-color: #00c853; }
+.llm-summary { display: flex; flex-direction: column; gap: 1rem; }
+.section-card { border-left: 4px solid var(--p-surface-500); }
+.section-heading { color: var(--p-primary-color); font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
+.section-body { color: var(--p-surface-200); font-size: 0.88rem; line-height: 1.7; white-space: pre-wrap; }
+.card-exec { border-left-color: var(--p-primary-color); }
+.card-critical { border-left-color: var(--p-red-500); }
+.card-medium { border-left-color: var(--p-yellow-500); }
+.card-narrative { border-left-color: var(--p-orange-400); }
+.card-action { border-left-color: var(--p-green-500); }
 </style>

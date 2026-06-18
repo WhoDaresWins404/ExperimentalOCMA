@@ -8,7 +8,7 @@
 </template>
 
 <script setup>
-const props = defineProps({
+defineProps({
   items: {
     type: Array,
     default: () => [
@@ -29,13 +29,13 @@ const props = defineProps({
 .graph-legend {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 10px;
+  gap: 0.3125rem;
+  padding: 0.625rem;
 }
 .legend-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 .legend-dot {
   width: 12px;
@@ -44,7 +44,7 @@ const props = defineProps({
   flex-shrink: 0;
 }
 .legend-label {
-  color: #8899aa;
+  color: var(--p-surface-300);
   font-size: 0.85em;
 }
 </style>

@@ -1,44 +1,54 @@
 <template>
   <div class="report-view">
-    <button class="back-btn" @click="$router.push('/dashboard')">&larr; Back</button>
+    <Button icon="pi pi-arrow-left" label="Back" severity="secondary" text @click="$router.push('/dashboard')" class="back-btn" />
     <h1>Scan Report</h1>
-    <div v-if="loading" class="loading">Loading report...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
+
+    <div v-if="loading" class="loading-state">
+      <ProgressSpinner />
+      <p>Loading report...</p>
+    </div>
+
+    <Message v-else-if="error" severity="error" :closable="false">{{ error }}</Message>
+
     <div v-else class="report-content">
       <div class="summary-grid">
-        <div class="summary-card"><div class="number critical">{{ summary.critical_count }}</div><div class="label">Critical</div></div>
-        <div class="summary-card"><div class="number high">{{ summary.high_count }}</div><div class="label">High</div></div>
-        <div class="summary-card"><div class="number medium">{{ summary.medium_count }}</div><div class="label">Medium</div></div>
-        <div class="summary-card"><div class="number low">{{ summary.low_count }}</div><div class="label">Low</div></div>
-        <div class="summary-card"><div class="number">{{ summary.total_endpoints }}</div><div class="label">Endpoints</div></div>
-        <div class="summary-card"><div class="number">{{ summary.total_findings }}</div><div class="label">Findings</div></div>
+        <Card class="summary-card"><template #content><div class="number critical">{{ summary.critical_count }}</div><div class="label">Critical</div></template></Card>
+        <Card class="summary-card"><template #content><div class="number high">{{ summary.high_count }}</div><div class="label">High</div></template></Card>
+        <Card class="summary-card"><template #content><div class="number medium">{{ summary.medium_count }}</div><div class="label">Medium</div></template></Card>
+        <Card class="summary-card"><template #content><div class="number low">{{ summary.low_count }}</div><div class="label">Low</div></template></Card>
+        <Card class="summary-card"><template #content><div class="number">{{ summary.total_endpoints }}</div><div class="label">Endpoints</div></template></Card>
+        <Card class="summary-card"><template #content><div class="number">{{ summary.total_findings }}</div><div class="label">Findings</div></template></Card>
       </div>
 
       <div class="actions">
-        <a :href="`/api/scan/${sessionId}/report?format=html`" class="btn" download>Download HTML</a>
-        <a :href="`/api/scan/${sessionId}/report?format=json`" class="btn" download>Download JSON</a>
-        <button @click="$router.push(`/map/${sessionId}`)" class="btn">View Map</button>
-        <button v-if="findings.length > 0" class="btn btn-llm" :disabled="llmLoading" @click="runComprehensive">
-          {{ llmLoading ? 'Analyzing...' : 'Generate Comprehensive LLM Analysis' }}
-        </button>
+        <Button label="Download HTML" icon="pi pi-download" severity="secondary" @click="downloadReport('html')" />
+        <Button label="Download JSON" icon="pi pi-download" severity="secondary" @click="downloadReport('json')" />
+        <Button label="View Map" icon="pi pi-sitemap" severity="info" @click="$router.push(`/map/${sessionId}`)" />
+        <Button v-if="findings.length > 0" :label="llmLoading ? 'Analyzing...' : 'Generate Comprehensive LLM Analysis'" icon="pi pi-magic" severity="help" :loading="llmLoading" @click="runComprehensive" />
       </div>
 
-      <div class="section" v-if="summary.llm_summary && !comprehensiveResult">
-        <h2>LLM Comprehensive Analysis</h2>
-        <LlmSummaryBlock :text="summary.llm_summary" />
-      </div>
+      <Card class="section" v-if="summary.llm_summary && !comprehensiveResult">
+        <template #title>LLM Comprehensive Analysis</template>
+        <template #content>
+          <LlmSummaryBlock :text="summary.llm_summary" />
+        </template>
+      </Card>
 
-      <div class="section" v-if="comprehensiveResult">
-        <h2>LLM Comprehensive Analysis</h2>
-        <LlmSummaryBlock :text="comprehensiveResult" />
-      </div>
+      <Card class="section" v-if="comprehensiveResult">
+        <template #title>LLM Comprehensive Analysis</template>
+        <template #content>
+          <LlmSummaryBlock :text="comprehensiveResult" />
+        </template>
+      </Card>
 
-      <div v-if="comprehensiveError" class="error-box">{{ comprehensiveError }}</div>
+      <Message v-if="comprehensiveError" severity="error" :closable="false">{{ comprehensiveError }}</Message>
 
-      <div class="section">
-        <h2>Findings ({{ findings.length }})</h2>
-        <FindingsFeed :findings="findings" />
-      </div>
+      <Card class="section">
+        <template #title>Findings ({{ findings.length }})</template>
+        <template #content>
+          <FindingsFeed :findings="findings" />
+        </template>
+      </Card>
     </div>
   </div>
 </template>
@@ -47,6 +57,10 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
+import Button from 'primevue/button'
+import Card from 'primevue/card'
+import Message from 'primevue/message'
+import ProgressSpinner from 'primevue/progressspinner'
 import FindingsFeed from '../components/FindingsFeed.vue'
 import LlmSummaryBlock from '../components/LlmSummaryBlock.vue'
 
@@ -67,14 +81,17 @@ onMounted(async () => {
     const result = await store.getScanResults(sessionId)
     findings.value = result.findings || []
     summary.value = result.session?.stats || result.session || {}
-    if (Array.isArray(findings.value)) {
-    } else { findings.value = [] }
+    if (!Array.isArray(findings.value)) findings.value = []
   } catch (e) {
     error.value = 'Failed to load report: ' + e.message
   } finally {
     loading.value = false
   }
 })
+
+function downloadReport(format) {
+  window.open(`/api/scan/${sessionId}/report?format=${format}`, '_blank')
+}
 
 async function runComprehensive() {
   llmLoading.value = true
@@ -96,26 +113,14 @@ async function runComprehensive() {
 </script>
 
 <style scoped>
-.report-view { padding: 20px 0; }
-.back-btn { background: none; border: 1px solid #1e3a5f; color: #8899aa; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-bottom: 20px; }
-.back-btn:hover { color: #00e5ff; border-color: #00e5ff; }
-h1 { color: #00e5ff; margin-bottom: 20px; }
-.loading, .error { text-align: center; padding: 40px; color: #8899aa; }
-.error { color: #ff1744; }
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; }
-.summary-card { background: #111927; border-radius: 8px; padding: 20px; border: 1px solid #1e3a5f; text-align: center; }
-.summary-card .number { font-size: 2em; font-weight: bold; }
-.summary-card .label { color: #8899aa; font-size: 0.8em; text-transform: uppercase; margin-top: 5px; }
-.actions { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
-.btn {
-  background: #1e3a5f; color: #e0e0e0; border: none;
-  padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none;
-}
-.btn:hover { background: #2a4a7f; color: #00e5ff; }
-.btn-llm { background: #4a148c; }
-.btn-llm:hover { background: #7c4dff; }
-.btn-llm:disabled { opacity: 0.5; cursor: not-allowed; }
-.section { background: #111927; border: 1px solid #1e3a5f; border-radius: 8px; padding: 25px; margin-bottom: 20px; }
-.section h2 { color: #00e5ff; margin-bottom: 15px; }
-.error-box { background: #1f0a0a; border: 1px solid #ff1744; border-radius: 8px; padding: 15px; margin-bottom: 20px; color: #ff1744; }
+.report-view { padding: 1.25rem 0; }
+.back-btn { margin-bottom: 1.25rem; }
+h1 { color: var(--p-primary-color); margin-bottom: 1.25rem; }
+.loading-state { text-align: center; padding: 2.5rem; color: var(--p-surface-300); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.9375rem; margin-bottom: 1.5625rem; }
+.summary-card { text-align: center; }
+.number { font-size: 2rem; font-weight: bold; }
+.label { color: var(--p-surface-300); font-size: 0.8rem; text-transform: uppercase; margin-top: 0.3125rem; }
+.actions { display: flex; gap: 0.625rem; margin-bottom: 1.5625rem; flex-wrap: wrap; }
+.section { margin-bottom: 1.25rem; }
 </style>

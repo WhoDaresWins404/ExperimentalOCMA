@@ -1,12 +1,14 @@
 <template>
   <div class="graph-wrapper">
     <div class="graph-filters">
-      <button v-for="f in filterDefs" :key="f.key"
-        :class="['filter-btn', { active: typeFilter[f.key] }]"
+      <Button v-for="f in filterDefs" :key="f.key"
+        :severity="typeFilter[f.key] ? 'primary' : 'secondary'"
+        :variant="typeFilter[f.key] ? undefined : 'outlined'"
+        size="small"
         @click="toggleFilter(f.key)">
         <span class="filter-dot" :style="{ background: f.color }"></span>
         {{ f.label }}
-      </button>
+      </Button>
     </div>
 
     <div ref="svgContainer" class="graph-svg-container">
@@ -26,7 +28,7 @@
     >
       <div class="tooltip-header">
         <span class="tooltip-title">{{ tooltipData.label }}</span>
-        <span v-if="tooltipData.severity" :class="'sev-badge sev-' + tooltipData.severity">{{ tooltipData.severity }}</span>
+        <Tag v-if="tooltipData.severity" :severity="tooltipSev(tooltipData.severity)" :value="tooltipData.severity" />
       </div>
       <div class="tooltip-body">
         <div v-if="tooltipData.type" class="tt-row"><span class="tt-label">Type</span><span class="tt-val">{{ tooltipData.typeDisplay }}</span></div>
@@ -46,7 +48,7 @@
         <div v-if="tooltipData.orphan" class="tt-row"><span class="tt-label">Note</span><span class="tt-val tt-warn">Not linked to specific endpoint</span></div>
         <div v-if="tooltipData.tags && tooltipData.tags.length" class="tt-row">
           <span class="tt-label">Tags</span>
-          <span class="tt-val"><span v-for="t in tooltipData.tags" :key="t" class="tt-tag">{{ t }}</span></span>
+          <span class="tt-val"><Tag v-for="t in tooltipData.tags" :key="t" :value="t" severity="secondary" /></span>
         </div>
       </div>
     </div>
@@ -56,6 +58,8 @@
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted, reactive } from 'vue'
 import * as d3 from 'd3'
+import Button from 'primevue/button'
+import Tag from 'primevue/tag'
 
 const props = defineProps({ graphData: { type: Object, default: () => ({ nodes: [], edges: [] }) } })
 const svgContainer = ref(null)
@@ -105,6 +109,15 @@ const typeDisplayNames = {
   host: 'Host', endpoint: 'Endpoint', api: 'API',
   auth_provider: 'Auth Provider', database: 'Database',
   static_asset: 'Static Asset', unknown: 'Unknown',
+}
+
+function tooltipSev(severity) {
+  const s = severity.toLowerCase()
+  if (s === 'critical') return 'danger'
+  if (s === 'high') return 'warn'
+  if (s === 'medium') return 'info'
+  if (s === 'low') return 'success'
+  return 'secondary'
 }
 
 function hideTooltip() {
@@ -355,18 +368,10 @@ function updateGraph() {
 .graph-wrapper { position: relative; width: 100%; height: 100%; }
 
 .graph-filters {
-  display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 0;
-  border-bottom: 1px solid #1e3a5f; margin-bottom: 10px;
+  display: flex; gap: 0.375rem; flex-wrap: wrap; padding: 0.625rem 0;
+  border-bottom: 1px solid var(--p-surface-500); margin-bottom: 0.625rem;
 }
-.filter-btn {
-  display: flex; align-items: center; gap: 5px;
-  background: #0a0e17; border: 1px solid #1e3a5f;
-  color: #8899aa; padding: 5px 12px; border-radius: 4px;
-  font-size: 0.8em; cursor: pointer; transition: all 0.2s;
-}
-.filter-btn:hover { border-color: #00e5ff; color: #e0e0e0; }
-.filter-btn.active { background: #1a2a4a; border-color: #00e5ff; color: #00e5ff; }
-.filter-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.filter-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 0.25rem; }
 
 .graph-svg-container {
   position: relative;
@@ -376,50 +381,36 @@ function updateGraph() {
 
 .graph-legend {
   position: absolute; bottom: 12px; right: 12px;
-  background: rgba(10, 14, 23, 0.85); border: 1px solid #1e3a5f;
-  border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; gap: 3px;
+  background: rgba(10, 14, 23, 0.85); border: 1px solid var(--p-surface-500);
+  border-radius: 6px; padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 0.1875rem;
   pointer-events: none; z-index: 10;
 }
-.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-item { display: flex; align-items: center; gap: 0.375rem; }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.legend-label { color: #8899aa; font-size: 0.75em; }
+.legend-label { color: var(--p-surface-300); font-size: 0.75em; }
 
 .graph-tooltip {
   position: absolute; pointer-events: none;
-  background: #111927; border: 1px solid #1e3a5f;
-  border-radius: 8px; padding: 12px; font-size: 12px;
+  background: var(--p-surface-600); border: 1px solid var(--p-surface-500);
+  border-radius: 8px; padding: 0.75rem; font-size: 12px;
   line-height: 1.5; z-index: 1000; max-width: 320px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 .tooltip-header {
   display: flex; justify-content: space-between; align-items: center;
-  gap: 8px; margin-bottom: 8px; padding-bottom: 6px;
-  border-bottom: 1px solid #1e3a5f;
+  gap: 0.5rem; margin-bottom: 0.5rem; padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--p-surface-500);
 }
-.tooltip-title { color: #00e5ff; font-weight: bold; font-size: 13px; word-break: break-all; }
-.sev-badge {
-  display: inline-block; padding: 2px 8px; border-radius: 10px;
-  font-size: 10px; font-weight: bold; text-transform: uppercase; white-space: nowrap;
-}
-.sev-critical { background: #ff1744; color: #fff; }
-.sev-high { background: #ff9100; color: #000; }
-.sev-medium { background: #ffd600; color: #000; }
-.sev-low { background: #00e5ff; color: #000; }
-.sev-none { background: #2979ff; color: #fff; }
-.tooltip-body { display: flex; flex-direction: column; gap: 3px; }
-.tt-row { display: flex; gap: 6px; align-items: baseline; }
-.tt-label { color: #556677; min-width: 70px; font-size: 11px; flex-shrink: 0; }
-.tt-val { color: #e0e0e0; font-size: 11px; word-break: break-all; }
-.tt-url { color: #00e5ff; }
+.tooltip-title { color: var(--p-primary-color); font-weight: bold; font-size: 13px; word-break: break-all; }
+.tooltip-body { display: flex; flex-direction: column; gap: 0.1875rem; }
+.tt-row { display: flex; gap: 0.375rem; align-items: baseline; }
+.tt-label { color: var(--p-surface-400); min-width: 70px; font-size: 11px; flex-shrink: 0; }
+.tt-val { color: var(--p-surface-100); font-size: 11px; word-break: break-all; }
+.tt-url { color: var(--p-primary-color); }
 .tt-warn { color: #ff9800; }
-.tt-desc .tt-val { font-size: 10px; color: #8899aa; max-height: 48px; overflow: hidden; }
-.cvss-critical { color: #ff1744; font-weight: bold; }
-.cvss-high { color: #ff9100; font-weight: bold; }
-.cvss-medium { color: #ffd600; font-weight: bold; }
-.cvss-low { color: #00e5ff; }
-.tt-tag {
-  display: inline-block; background: #0a0e17;
-  padding: 1px 6px; border-radius: 4px; font-size: 10px;
-  color: #8899aa; margin-right: 3px;
-}
+.tt-desc .tt-val { font-size: 10px; color: var(--p-surface-300); max-height: 48px; overflow: hidden; }
+.cvss-critical { color: var(--p-red-500); font-weight: bold; }
+.cvss-high { color: var(--p-orange-400); font-weight: bold; }
+.cvss-medium { color: var(--p-yellow-500); font-weight: bold; }
+.cvss-low { color: var(--p-primary-color); }
 </style>

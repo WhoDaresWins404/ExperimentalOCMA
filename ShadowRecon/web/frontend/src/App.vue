@@ -1,14 +1,16 @@
 <template>
   <div class="app">
-    <nav class="navbar">
-      <div class="nav-brand" @click="$router.push('/dashboard')">
-        <span class="brand-icon">&#9670;</span>
-        ShadowRecon
-      </div>
-      <div class="nav-links">
-        <router-link to="/dashboard">Dashboard</router-link>
-      </div>
-    </nav>
+    <Toolbar class="app-toolbar">
+      <template #start>
+        <div class="nav-brand" @click="$router.push('/dashboard')">
+          <span class="brand-icon pi pi-shield"></span>
+          <span class="brand-text">ShadowRecon</span>
+        </div>
+      </template>
+      <template #end>
+        <Button label="Dashboard" icon="pi pi-home" text @click="$router.push('/dashboard')" />
+      </template>
+    </Toolbar>
     <main class="main-content">
       <router-view />
     </main>
@@ -16,46 +18,36 @@
 </template>
 
 <script setup>
+import Toolbar from 'primevue/toolbar'
+import Button from 'primevue/button'
 </script>
 
-<style>
+<style scoped>
 .app {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
-.navbar {
-  background: linear-gradient(135deg, #0d1b2a, #1b2838);
-  padding: 15px 30px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #1e3a5f;
+.app-toolbar {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  padding: 0.75rem 2rem;
 }
 .nav-brand {
-  color: #00e5ff;
-  font-size: 1.3em;
-  font-weight: bold;
-  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: var(--p-primary-color);
+  font-size: 1.25rem;
+  font-weight: 700;
 }
-.brand-icon {
-  color: #00e5ff;
-  font-size: 1.2em;
-}
-.nav-links a {
-  color: #8899aa;
-  text-decoration: none;
-  margin-left: 20px;
-  font-size: 0.9em;
-  transition: color 0.2s;
-}
-.nav-links a:hover { color: #00e5ff; }
+.brand-icon { font-size: 1.3rem; }
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: 1.5rem;
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;

@@ -6,7 +6,7 @@
       <div v-if="evidence.fingerprint" class="ev-row"><span class="ev-label">Fingerprint</span><code class="ev-code">{{ evidence.fingerprint }}</code></div>
       <div v-if="evidence.techniques" class="ev-row">
         <span class="ev-label">Techniques</span>
-        <span class="ev-tags"><span v-for="t in evList(evidence.techniques)" :key="t" class="ev-tag">{{ t }}</span></span>
+        <div class="ev-tags"><Tag v-for="t in evList(evidence.techniques)" :key="t" :value="t" severity="secondary" /></div>
       </div>
       <div v-if="evidence.results" class="ev-row">
         <span class="ev-label">Evasion Results</span>
@@ -22,10 +22,14 @@
 
     <div v-else-if="isDirPaths" class="ev-section">
       <div class="ev-row"><span class="ev-label">Paths Found</span><span class="ev-val">{{ evidence.count }} blocked</span></div>
-      <details class="ev-details">
-        <summary class="ev-summary">Show all {{ evidence.count }} paths</summary>
-        <ul class="ev-pathlist"><li v-for="p in evList(evidence.paths)" :key="p">{{ p }}</li></ul>
-      </details>
+      <Accordion>
+        <AccordionPanel value="0">
+          <AccordionHeader>Show all {{ evidence.count }} paths</AccordionHeader>
+          <AccordionContent>
+            <ul class="ev-pathlist"><li v-for="p in evList(evidence.paths)" :key="p">{{ p }}</li></ul>
+          </AccordionContent>
+        </AccordionPanel>
+      </Accordion>
     </div>
 
     <div v-else-if="isSinglePath" class="ev-section">
@@ -46,11 +50,11 @@
     <div v-else-if="isHeaders" class="ev-section">
       <div v-if="evidence.missing" class="ev-row">
         <span class="ev-label ev-miss">Missing Headers</span>
-        <span class="ev-tags"><span v-for="h in evList(evidence.missing)" :key="h" class="ev-tag ev-tag-miss">{{ h }}</span></span>
+        <div class="ev-tags"><Tag v-for="h in evList(evidence.missing)" :key="h" :value="h" severity="warn" /></div>
       </div>
       <div v-if="evidence.present" class="ev-row">
         <span class="ev-label ev-pres">Present Headers</span>
-        <span class="ev-tags"><span v-for="h in evList(evidence.present)" :key="h" class="ev-tag ev-tag-pres">{{ h }}</span></span>
+        <div class="ev-tags"><Tag v-for="h in evList(evidence.present)" :key="h" :value="h" severity="success" /></div>
       </div>
     </div>
 
@@ -82,7 +86,7 @@
       <div class="ev-row"><span class="ev-label">Cookie</span><code class="ev-code">{{ evidence.cookie }}</code></div>
       <div v-if="evidence.issues" class="ev-row">
         <span class="ev-label ev-miss">Issues</span>
-        <span class="ev-tags"><span v-for="i in evList(evidence.issues)" :key="i" class="ev-tag ev-tag-miss">{{ i }}</span></span>
+        <div class="ev-tags"><Tag v-for="i in evList(evidence.issues)" :key="i" :value="i" severity="warn" /></div>
       </div>
     </div>
 
@@ -115,6 +119,11 @@
 
 <script setup>
 import { computed } from 'vue'
+import Tag from 'primevue/tag'
+import Accordion from 'primevue/accordion'
+import AccordionPanel from 'primevue/accordionpanel'
+import AccordionHeader from 'primevue/accordionheader'
+import AccordionContent from 'primevue/accordioncontent'
 
 const props = defineProps({
   evidence: { type: [Object, Array, String], default: () => ({}) },
@@ -158,32 +167,27 @@ function evSize(v) { const s = Number(v); return s > 1024 ? (s / 1024).toFixed(1
 </script>
 
 <style scoped>
-.ev-viewer { font-size: 0.82em; line-height: 1.5; }
-.ev-section { display: flex; flex-direction: column; gap: 6px; }
-.ev-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.ev-label { color: #556677; font-size: 0.85em; min-width: 70px; flex-shrink: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-.ev-val { color: #e0e0e0; word-break: break-all; }
-.ev-url { color: #00e5ff; }
-.ev-code { background: #0a0e17; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; color: #b0b0b0; }
-.ev-pre { background: #0a0e17; padding: 8px; border-radius: 4px; font-size: 0.9em; overflow-x: auto; color: #b0b0b0; white-space: pre-wrap; max-height: 120px; overflow-y: auto; width: 100%; }
+.ev-viewer { font-size: 0.82rem; line-height: 1.5; }
+.ev-section { display: flex; flex-direction: column; gap: 0.375rem; }
+.ev-row { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.ev-label { color: var(--p-surface-400); font-size: 0.85em; min-width: 70px; flex-shrink: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.ev-val { color: var(--p-surface-100); word-break: break-all; }
+.ev-url { color: var(--p-primary-color); }
+.ev-code { background: var(--p-surface-800); padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.9em; color: var(--p-surface-200); }
+.ev-pre { background: var(--p-surface-800); padding: 0.5rem; border-radius: 4px; font-size: 0.9em; overflow-x: auto; color: var(--p-surface-200); white-space: pre-wrap; max-height: 120px; overflow-y: auto; width: 100%; }
 .ev-preview { max-height: 80px; }
 .ev-raw { max-height: 200px; }
-.ev-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-.ev-tag { background: #0a0e17; padding: 1px 6px; border-radius: 4px; color: #8899aa; font-size: 0.9em; border: 1px solid #1e3a5f; }
-.ev-tag-miss { color: #ff9100; border-color: #ff9100; }
-.ev-tag-pres { color: #00e5ff; border-color: #00e5ff; }
-.ev-miss { color: #ff9100; }
-.ev-pres { color: #00e5ff; }
-.ev-bar { height: 4px; background: #00e5ff; border-radius: 2px; min-width: 4px; opacity: 0.5; }
-.ev-arrow { color: #00e5ff; font-weight: bold; }
-.ev-details { width: 100%; }
-.ev-summary { color: #00e5ff; cursor: pointer; font-size: 0.9em; }
-.ev-pathlist { margin: 6px 0 0 16px; padding: 0; max-height: 120px; overflow-y: auto; }
-.ev-pathlist li { color: #8899aa; font-size: 0.85em; font-family: monospace; }
-.badge { display: inline-block; padding: 1px 8px; border-radius: 8px; background: #7c4dff; color: #fff; font-size: 0.9em; }
+.ev-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.ev-miss { color: var(--p-orange-400); }
+.ev-pres { color: var(--p-primary-color); }
+.ev-bar { height: 4px; background: var(--p-primary-color); border-radius: 2px; min-width: 4px; opacity: 0.5; }
+.ev-arrow { color: var(--p-primary-color); font-weight: bold; }
+.ev-pathlist { margin: 0.375rem 0 0 1rem; padding: 0; max-height: 120px; overflow-y: auto; }
+.ev-pathlist li { color: var(--p-surface-300); font-size: 0.85em; font-family: monospace; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 8px; background: var(--p-primary-400); color: #fff; font-size: 0.9em; }
 .status-code { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
-.status-200 { background: #00c853; color: #000; }
-.status-300 { background: #00e5ff; color: #000; }
-.status-400 { background: #ff9100; color: #000; }
-.status-500 { background: #ff1744; color: #fff; }
+.status-200 { background: var(--p-green-500); color: #000; }
+.status-300 { background: var(--p-primary-color); color: #000; }
+.status-400 { background: var(--p-orange-400); color: #000; }
+.status-500 { background: var(--p-red-500); color: #fff; }
 </style>

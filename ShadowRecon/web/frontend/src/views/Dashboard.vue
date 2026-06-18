@@ -5,10 +5,12 @@
       <p class="subtitle">Web Application Security Scanner</p>
     </div>
 
-    <div class="scan-form-card">
-      <h2>New Scan</h2>
-      <ScanForm @start="handleStartScan" />
-    </div>
+    <Card class="scan-form-card">
+      <template #title>New Scan</template>
+      <template #content>
+        <ScanForm @start="handleStartScan" />
+      </template>
+    </Card>
 
     <div class="campaigns-section">
       <h2>Campaigns</h2>
@@ -16,16 +18,20 @@
         No campaigns yet. Start a scan above.
       </div>
       <div v-else class="campaign-list">
-        <div v-for="c in campaigns" :key="c.id" class="campaign-card" @click="$router.push(`/campaign/${c.id}`)">
-          <div class="campaign-card-header">
-            <div class="campaign-name">{{ c.name }}</div>
-            <button class="delete-btn" @click.stop="deleteCampaign(c.id)" title="Delete campaign">✕</button>
-          </div>
-          <div class="campaign-meta">{{ c.description || 'No description' }} &middot; {{ new Date(c.created_at).toLocaleDateString() }}</div>
-          <div class="campaign-tags">
-            <span v-for="tag in c.tags" :key="tag" class="tag">{{ tag }}</span>
-          </div>
-        </div>
+        <Card v-for="c in campaigns" :key="c.id" class="campaign-card" @click="$router.push(`/campaign/${c.id}`)">
+          <template #title>
+            <div class="campaign-card-header">
+              <div class="campaign-name">{{ c.name }}</div>
+              <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click.stop="deleteCampaign(c.id)" />
+            </div>
+          </template>
+          <template #content>
+            <div class="campaign-meta">{{ c.description || 'No description' }} &middot; {{ new Date(c.created_at).toLocaleDateString() }}</div>
+            <div class="campaign-tags">
+              <Tag v-for="tag in c.tags" :key="tag" :value="tag" severity="info" />
+            </div>
+          </template>
+        </Card>
       </div>
     </div>
   </div>
@@ -35,6 +41,9 @@
 import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
+import Card from 'primevue/card'
+import Button from 'primevue/button'
+import Tag from 'primevue/tag'
 import ScanForm from '../components/ScanForm.vue'
 import axios from 'axios'
 
@@ -72,34 +81,21 @@ async function handleStartScan(params) {
 </script>
 
 <style scoped>
-.dashboard { padding: 20px 0; }
-.header-section { margin-bottom: 30px; }
-.header-section h1 { color: #00e5ff; font-size: 2em; }
-.subtitle { color: #8899aa; margin-top: 5px; }
-.scan-form-card {
-  background: #111927; border-radius: 8px; padding: 25px;
-  border: 1px solid #1e3a5f; margin-bottom: 30px;
-}
-.scan-form-card h2 { color: #00e5ff; margin-bottom: 15px; }
-.campaigns-section h2 { color: #00e5ff; margin-bottom: 15px; }
+.dashboard { padding: 1.25rem 0; }
+.header-section { margin-bottom: 1.875rem; }
+.header-section h1 { color: var(--p-primary-color); font-size: 2rem; }
+.subtitle { color: var(--p-surface-300); margin-top: 0.3125rem; }
+.scan-form-card { margin-bottom: 1.875rem; }
+.campaigns-section h2 { color: var(--p-primary-color); margin-bottom: 0.9375rem; }
 .empty-state {
-  background: #111927; border-radius: 8px; padding: 40px;
-  text-align: center; color: #556677; border: 1px dashed #1e3a5f;
+  background: var(--p-surface-600); border-radius: 8px; padding: 2.5rem;
+  text-align: center; color: var(--p-surface-400); border: 1px dashed var(--p-surface-500);
 }
-.campaign-list { display: grid; gap: 12px; }
-.campaign-card {
-  background: #111927; border-radius: 8px; padding: 20px;
-  border: 1px solid #1e3a5f; cursor: pointer; transition: all 0.2s;
-}
-.campaign-card:hover { border-color: #00e5ff; background: #0f1a2e; }
-.campaign-card-header { display: flex; justify-content: space-between; align-items: center; }
-.campaign-name { color: #e0e0e0; font-weight: bold; font-size: 1.1em; }
-.delete-btn { background: none; border: 1px solid #5f1e1e; color: #f44336; border-radius: 4px; cursor: pointer; padding: 2px 8px; font-size: 0.85em; transition: all 0.2s; }
-.delete-btn:hover { background: #5f1e1e; color: #fff; }
-.campaign-meta { color: #8899aa; font-size: 0.85em; margin-top: 5px; }
-.campaign-tags { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
-.tag {
-  background: #1e3a5f; color: #00e5ff; padding: 2px 10px;
-  border-radius: 10px; font-size: 0.8em;
-}
+.campaign-list { display: grid; gap: 0.75rem; }
+.campaign-card { cursor: pointer; transition: all 0.2s; }
+.campaign-card:hover { border-color: var(--p-primary-color); }
+.campaign-card-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.campaign-name { color: var(--p-surface-100); font-weight: 700; font-size: 1.1rem; }
+.campaign-meta { color: var(--p-surface-300); font-size: 0.85rem; margin-top: 0.3125rem; }
+.campaign-tags { margin-top: 0.5rem; display: flex; gap: 0.375rem; flex-wrap: wrap; }
 </style>
