@@ -23,12 +23,12 @@
         </button>
       </div>
 
-      <div class="section" v-if="summary.llm_summary">
+      <div class="section" v-if="summary.llm_summary && !comprehensiveResult">
         <h2>LLM Comprehensive Analysis</h2>
         <LlmSummaryBlock :text="summary.llm_summary" />
       </div>
 
-      <div class="section" v-if="comprehensiveResult && !summary.llm_summary">
+      <div class="section" v-if="comprehensiveResult">
         <h2>LLM Comprehensive Analysis</h2>
         <LlmSummaryBlock :text="comprehensiveResult" />
       </div>
@@ -86,7 +86,6 @@ async function runComprehensive() {
       comprehensiveError.value = result.error
     } else if (result.summary) {
       comprehensiveResult.value = result.summary
-      summary.value.llm_summary = result.summary
     }
   } catch (e) {
     comprehensiveError.value = e.message

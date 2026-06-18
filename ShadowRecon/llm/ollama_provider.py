@@ -83,14 +83,15 @@ class OllamaProvider(LLMProvider):
                 natural_description=parsed.get("natural_description", ""),
                 impact_analysis=parsed.get("impact_analysis", ""),
                 suggested_cvss_vector=parsed.get("suggested_cvss_vector", ""),
-                remediation_steps=parsed.get("remediation_steps", []),
+                remediation_steps=self._coerce_str_list(parsed.get("remediation_steps", [])),
                 raw_response=response[:1000],
                 model_used=f"ollama/{self.model}",
                 processing_time_ms=elapsed,
             )
             finding.is_llm_enhanced = True
-            if parsed.get("remediation_steps"):
-                finding.remediation = "\n".join(parsed["remediation_steps"])
+            steps = self._coerce_str_list(parsed.get("remediation_steps", []))
+            if steps:
+                finding.remediation = "\n".join(steps)
             return finding
         except LLMProviderError:
             return finding

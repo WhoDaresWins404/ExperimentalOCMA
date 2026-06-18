@@ -68,6 +68,17 @@ class LLMEnhancer:
                 pass
         return enriched
 
+    @staticmethod
+    def _coerce_str(value) -> str:
+        """Coerce LLM response values to strings (they sometimes return dicts/lists)."""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            return "\n".join(str(v) for v in value)
+        if isinstance(value, dict):
+            return json.dumps(value, indent=2)
+        return str(value) if value else ""
+
     async def analyze_finding(self, finding: Finding) -> dict:
         if not self.config.enabled:
             return {"error": "LLM is disabled"}
@@ -92,11 +103,11 @@ class LLMEnhancer:
             )
             parsed = await provider._parse_json_response(response)
             analysis = {
-                "technical_impact": parsed.get("technical_impact", ""),
-                "exploitation_path": parsed.get("exploitation_path", ""),
-                "remediation": parsed.get("remediation", ""),
-                "chaining_potential": parsed.get("chaining_potential", ""),
-                "analyst_confidence": parsed.get("analyst_confidence", ""),
+                "technical_impact": self._coerce_str(parsed.get("technical_impact", "")),
+                "exploitation_path": self._coerce_str(parsed.get("exploitation_path", "")),
+                "remediation": self._coerce_str(parsed.get("remediation", "")),
+                "chaining_potential": self._coerce_str(parsed.get("chaining_potential", "")),
+                "analyst_confidence": self._coerce_str(parsed.get("analyst_confidence", "")),
             }
 
             finding.llm_analysis = LLMAnalysis(
