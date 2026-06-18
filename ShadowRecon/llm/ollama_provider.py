@@ -180,3 +180,28 @@ class OllamaProvider(LLMProvider):
                 return resp.status_code == 200
         except Exception:
             return False
+
+    async def generate_payload(self, prompt: str, timeout: int = 120) -> str:
+        url = f"{self.base_url}/api/generate"
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "system": "You are a senior XSS engineer. Return only the raw payload.",
+            "temperature": 0.4,
+            "max_tokens": 500,
+            "stream": False,
+        }
+        print(f"[LLM] Ollama payload_gen: model={self.model} timeout={timeout}s")
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                t0 = time.time()
+                resp = await client.post(url, json=payload)
+                elapsed = time.time() - t0
+                resp.raise_for_status()
+                data = resp.json()
+                text = (data.get("response", "") or "").strip()
+                print(f"[LLM] Ollama payload_gen OK: {elapsed:.1f}s payload_len={len(text)}")
+                return text
+        except Exception as e:
+            print(f"[LLM] Ollama payload_gen FAIL: {str(e)[:200]}")
+            return ""

@@ -30,6 +30,16 @@ class ScanRequest(BaseModel):
     detection_mode: str = "detect"
     enable_proxy: bool = False
     enable_llm: bool = False
+    auth_type: str = "none"
+    auth_cookie_string: str = ""
+    auth_bearer_token: str = ""
+    auth_header_key: str = ""
+    auth_header_value: str = ""
+    auth_basic_username: str = ""
+    auth_basic_password: str = ""
+    crawl_depth: int = 2
+    xss_mode: str = "probe"
+    enable_llm_payloads: bool = False
 
 
 class CampaignCreate(BaseModel):
@@ -160,7 +170,19 @@ def create_app(config: ScanConfig = None) -> FastAPI:
             "scan_mode": req.scan_mode,
             "detection_mode": req.detection_mode,
             "proxy": {"enabled": req.enable_proxy},
-            "llm": {"enabled": req.enable_llm},
+            "llm": {"enabled": req.enable_llm, "payload_gen_enabled": req.enable_llm_payloads},
+            "depth": req.crawl_depth,
+            "xss_mode": req.xss_mode,
+            "auth": {
+                "enabled": req.auth_type != "none",
+                "auth_type": req.auth_type,
+                "cookie_string": req.auth_cookie_string,
+                "bearer_token": req.auth_bearer_token,
+                "header_key": req.auth_header_key,
+                "header_value": req.auth_header_value,
+                "basic_username": req.auth_basic_username,
+                "basic_password": req.auth_basic_password,
+            },
         }
 
         campaign = await engine.campaign_mgr.create(

@@ -219,9 +219,9 @@ class ScanEngine:
         cfg = scan_config or self.config
         mode = cfg.scan_mode
         if mode == "light":
-            scanner_order = ["directory_scanner", "misconfig_scanner"]
+            scanner_order = ["crawler_scanner", "directory_scanner", "misconfig_scanner"]
         else:
-            scanner_order = ["api_scanner", "directory_scanner", "misconfig_scanner", "anomaly_detector"]
+            scanner_order = ["crawler_scanner", "api_scanner", "directory_scanner", "misconfig_scanner", "anomaly_detector", "form_scanner"]
 
         for name in scanner_order:
             if self._cancelled:

@@ -136,6 +136,23 @@ class DedupFingerprintRow(Base):
     )
 
 
+class SuccessfulPayloadRow(Base):
+    __tablename__ = "successful_payloads"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    context_hash: Mapped[str] = mapped_column(String(64), index=True)
+    payload: Mapped[str] = mapped_column(Text)
+    waf_fingerprint: Mapped[str] = mapped_column(Text, default="")
+    reflection_context: Mapped[str] = mapped_column(String(32), default="")
+    encoding_type: Mapped[str] = mapped_column(String(32), default="")
+    target_domain: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    hit_count: Mapped[int] = mapped_column(Integer, default=1)
+    successful_at: Mapped[str] = mapped_column(String(32))
+
+    __table_args__ = (
+        Index("idx_payload_hash", "context_hash"),
+    )
+
+
 class RawResponseRow(Base):
     __tablename__ = "raw_responses"
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
@@ -368,5 +385,32 @@ class Database:
                     RawResponseRow.session_id == session_id,
                     RawResponseRow.id.in_(ids)
                 )
+            )).scalars().all()
+            return [await self._row_to_dict(r) for r in rows]
+
+    async def find_payload_by_hash(self, context_hash: str) -> Optional[dict]:
+        async with self.session() as s:
+            row = (await s.execute(
+                select(SuccessfulPayloadRow).where(SuccessfulPayloadRow.context_hash == context_hash)
+            )).scalar_one_or_none()
+            if row:
+                return await self._row_to_dict(row)
+            return None
+
+    async def save_successful_payload(self, data: dict):
+        async with self.session() as s:
+            existing = (await s.execute(
+                select(SuccessfulPayloadRow).where(SuccessfulPayloadRow.context_hash == data["context_hash"])
+            )).scalar_one_or_none()
+            if existing:
+                existing.hit_count += 1
+            else:
+                row = SuccessfulPayloadRow(**data)
+                s.add(row)
+
+    async def get_popular_payloads(self, limit: int = 20) -> list[dict]:
+        async with self.session() as s:
+            rows = (await s.execute(
+                select(SuccessfulPayloadRow).order_by(SuccessfulPayloadRow.hit_count.desc()).limit(limit)
             )).scalars().all()
             return [await self._row_to_dict(r) for r in rows]

@@ -170,3 +170,29 @@ class OpenAIProvider(LLMProvider):
 
     async def health_check(self) -> bool:
         return bool(self.api_key)
+
+    async def generate_payload(self, prompt: str, timeout: int = 120) -> str:
+        url = f"{self.api_base}/chat/completions"
+        payload = {
+            "model": self.config.model_name or "gpt-4",
+            "messages": [
+                {"role": "system", "content": "You are a senior XSS engineer. Return only the raw payload."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.4,
+            "max_tokens": 500,
+        }
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        print(f"[LLM] OpenAI payload_gen: model={self.config.model_name} timeout={timeout}s")
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                t0 = time.time()
+                resp = await client.post(url, json=payload, headers=headers)
+                elapsed = time.time() - t0
+                resp.raise_for_status()
+                text = resp.json()["choices"][0]["message"]["content"].strip()
+                print(f"[LLM] OpenAI payload_gen OK: {elapsed:.1f}s payload_len={len(text)}")
+                return text
+        except Exception as e:
+            print(f"[LLM] OpenAI payload_gen FAIL: {str(e)[:200]}")
+            return ""

@@ -5,3 +5,5 @@ from .directory_scanner import DirectoryScanner
 from .misconfig_scanner import MisconfigScanner
 from .waf_detector import WAFDetector
 from .anomaly_detector import AnomalyDetector
+from .crawler_scanner import CrawlerScanner
+from .form_scanner import FormScanner

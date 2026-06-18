@@ -39,6 +39,16 @@ export const useScanStore = defineStore('scan', () => {
       detection_mode: params.detection_mode || 'detect',
       enable_proxy: params.enable_proxy || false,
       enable_llm: params.enable_llm || false,
+      auth_type: params.auth_type || 'none',
+      auth_cookie_string: params.auth_cookie_string || '',
+      auth_bearer_token: params.auth_bearer_token || '',
+      auth_header_key: params.auth_header_key || '',
+      auth_header_value: params.auth_header_value || '',
+      auth_basic_username: params.auth_basic_username || '',
+      auth_basic_password: params.auth_basic_password || '',
+      crawl_depth: params.crawl_depth || 2,
+      xss_mode: params.xss_mode || 'probe',
+      enable_llm_payloads: params.enable_llm_payloads || false,
     })
     return data
   }

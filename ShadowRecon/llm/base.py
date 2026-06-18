@@ -21,6 +21,9 @@ class LLMProvider(ABC):
     async def health_check(self) -> bool:
         pass
 
+    async def generate_payload(self, prompt: str, timeout: int = 120) -> str:
+        return ""
+
 
 class LLMProviderError(Exception):
     pass

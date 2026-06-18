@@ -12,6 +12,17 @@ class ProxyConfig(BaseModel):
     per_request: bool = False
 
 
+class AuthConfig(BaseModel):
+    enabled: bool = False
+    auth_type: Literal["none", "cookie", "bearer", "header", "basic"] = "none"
+    cookie_string: str = ""
+    bearer_token: str = ""
+    header_key: str = ""
+    header_value: str = ""
+    basic_username: str = ""
+    basic_password: str = ""
+
+
 class LLMConfig(BaseModel):
     enabled: bool = False
     provider: Literal["ollama", "openai"] = "ollama"
@@ -26,6 +37,10 @@ class LLMConfig(BaseModel):
     enrich_min_severity: str = "high"
     generate_summary: bool = True
     generate_training_data: bool = True
+    payload_gen_enabled: bool = False
+    payload_gen_timeout: int = 120
+    payload_gen_max_attempts: int = 3
+    payload_gen_fallback: bool = True
 
 
 class EvasionConfig(BaseModel):
@@ -62,10 +77,13 @@ class ScanConfig(BaseModel):
     follow_redirects: bool = True
     max_redirects: int = 5
     depth: int = 2
+    crawl_mode: bool = True
+    xss_mode: str = "probe"
     cookies: dict[str, str] = Field(default_factory=dict)
     headers: dict[str, str] = Field(default_factory=dict)
 
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
+    auth: AuthConfig = Field(default_factory=AuthConfig)
     evasion: EvasionConfig = Field(default_factory=EvasionConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)

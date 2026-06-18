@@ -67,6 +67,18 @@ class BaseScanner(ABC):
             headers = {"Accept": "*/*"}
             if self.config.evasion.user_agent_rotation:
                 headers["User-Agent"] = random.choice(self.config.evasion.user_agents)
+            auth = self.config.auth
+            if auth.enabled and auth.auth_type != "none":
+                if auth.auth_type == "cookie" and auth.cookie_string:
+                    headers["Cookie"] = auth.cookie_string
+                elif auth.auth_type == "bearer" and auth.bearer_token:
+                    headers["Authorization"] = f"Bearer {auth.bearer_token}"
+                elif auth.auth_type == "header" and auth.header_key:
+                    headers[auth.header_key] = auth.header_value
+                elif auth.auth_type == "basic" and auth.basic_username:
+                    import base64
+                    raw = f"{auth.basic_username}:{auth.basic_password}"
+                    headers["Authorization"] = f"Basic {base64.b64encode(raw.encode()).decode()}"
             try:
                 limits = Limits(
                     max_connections=self.config.threads,
