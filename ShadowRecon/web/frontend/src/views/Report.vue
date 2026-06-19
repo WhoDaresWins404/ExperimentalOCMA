@@ -35,14 +35,9 @@
         </button>
       </div>
 
-      <div v-if="summary.llm_summary && !comprehensiveResult" class="bg-cyber-surface border border-cyber-border rounded-lg p-6 mb-5">
+      <div v-if="displayText" class="bg-cyber-surface border border-cyber-border rounded-lg p-6 mb-5">
         <h2 class="text-cyber-accent font-bold mb-4">LLM Comprehensive Analysis</h2>
-        <LlmSummaryBlock :text="summary.llm_summary" />
-      </div>
-
-      <div v-if="comprehensiveResult" class="bg-cyber-surface border border-cyber-border rounded-lg p-6 mb-5">
-        <h2 class="text-cyber-accent font-bold mb-4">LLM Comprehensive Analysis</h2>
-        <LlmSummaryBlock :text="comprehensiveResult" />
+        <LlmSummaryBlock :text="displayText" />
       </div>
 
       <div v-if="comprehensiveError" class="bg-red-900 border border-cyber-danger rounded-lg p-4 mb-5 text-cyber-danger">{{ comprehensiveError }}</div>
@@ -75,6 +70,8 @@ const llmLoading = ref(false)
 const comprehensiveResult = ref('')
 const comprehensiveError = ref('')
 
+const displayText = computed(() => comprehensiveResult.value || summary.value.llm_summary || '')
+
 const summaryCards = computed(() => [
   { key: 'critical', value: summary.value.critical_count || 0, label: 'Critical', color: 'text-cyber-danger' },
   { key: 'high', value: summary.value.high_count || 0, label: 'High', color: 'text-cyber-warning' },
@@ -98,7 +95,6 @@ onMounted(async () => {
 async function runComprehensive() {
   llmLoading.value = true
   comprehensiveError.value = ''
-  comprehensiveResult.value = ''
   try {
     const result = await store.analyzeScan(sessionId)
     if (result.error) comprehensiveError.value = result.error
