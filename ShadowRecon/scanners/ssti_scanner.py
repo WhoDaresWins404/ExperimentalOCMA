@@ -44,8 +44,10 @@ class SSTIScanner(BaseScanner):
                 if indicator.lower() in body.lower():
                     findings.append(self.make_finding(
                         title=f"Server-Side Template Injection — {engine}",
-                        description=f"Payload '{payload}' evaluated to '{indicator}' which appears in response.",
-                        severity="critical",
+                        description=f"Payload '{payload}' evaluated to '{indicator}' which appears in response. "
+                                    "SSTI confirmed at expression level — potential RCE via template engine "
+                                    "escape (not confirmed in this scan).",
+                        severity="high",
                         endpoint=self.make_endpoint(target.url, discovered_by=self.name),
                         evidence={"payload": payload, "engine": engine,
                                   "indicator": indicator, "body_snippet": body[:200]},
