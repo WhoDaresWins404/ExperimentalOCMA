@@ -19,3 +19,5 @@ from .api_fuzzer import ApiFuzzer
 from .subdomain_scanner import SubdomainScanner
 from .js_analyzer import JsAnalyzer
 from .ssrf_scanner import SSRFScanner
+from .reflection_mapper import ReflectionMapper
+from .reflection_injector import ReflectionInjector
