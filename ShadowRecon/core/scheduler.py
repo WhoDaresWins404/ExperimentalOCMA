@@ -9,7 +9,7 @@ from .budget import TimeBudgetManager
 from .directive import DirectiveBus
 from .config import ScanConfig
 from scanners.base import BaseScanner
-from core.exceptions import ScanCancelled
+from core.exceptions import ScanCancelled, HostUnreachable
 
 
 @dataclass(order=True)
@@ -30,11 +30,13 @@ class PriorityScheduler:
         budget_mgr: TimeBudgetManager,
         directive_bus: DirectiveBus,
         config: ScanConfig,
+        host_monitor=None,
     ):
         self._scanners = scanners
         self._budget = budget_mgr
         self._bus = directive_bus
         self._config = config
+        self._host_monitor = host_monitor
         self._queue: list[ScannerJob] = []
         self._completed: set[str] = set()
         self._cancelled = False
@@ -86,6 +88,8 @@ class PriorityScheduler:
         """Dequeue and run the next available scanner. Returns (name, results) or None."""
         if self._cancelled:
             raise ScanCancelled()
+        if self._host_monitor and self._host_monitor.is_dead:
+            raise HostUnreachable(target.url, self._host_monitor.unreachable_for)
 
         while self._queue:
             job = self._queue.pop(0)

@@ -104,6 +104,8 @@ class ScanConfig(BaseModel):
     intelligence: IntelligenceConfig = Field(default_factory=IntelligenceConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
 
+    host_unreachable_timeout: int = 120
+
     data_dir: str = str(Path(__file__).parent.parent / "data")
     output_dir: str = "./reports"
 

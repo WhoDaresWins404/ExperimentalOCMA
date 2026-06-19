@@ -21,6 +21,15 @@ class RateLimited(ShadowReconError):
 class ScanCancelled(ShadowReconError):
     pass
 
+class HostUnreachable(ShadowReconError):
+    def __init__(self, target: str, unreachable_for: float = 0):
+        msg = f"Target host unreachable: {target}"
+        if unreachable_for > 0:
+            msg += f" (unreachable for {unreachable_for:.0f}s)"
+        super().__init__(msg)
+        self.target = target
+        self.unreachable_for = unreachable_for
+
 class ScanTimeout(ShadowReconError):
     def __init__(self, timeout: int):
         super().__init__(f"Scan timed out after {timeout}s")

@@ -21,7 +21,8 @@ from .scheduler import PriorityScheduler
 from .fingerprint import FingerprintEngine
 from scanners.registry import ScannerRegistry
 from scanners.base import BaseScanner
-from core.exceptions import ShadowReconError, WAFDetected, ScanCancelled
+from core.exceptions import ShadowReconError, WAFDetected, ScanCancelled, HostUnreachable
+from core.host_monitor import HostMonitor
 
 
 ProgressCallback = Callable[[str, Any], None]
@@ -153,8 +154,14 @@ class ScanEngine:
                         all_findings = waf_findings[:]
                         all_endpoints = waf_endpoints[:]
                     else:
+                        host_monitor = HostMonitor(
+                            target, scan_config.host_unreachable_timeout
+                        )
+                        await host_monitor.probe()
+
                         scheduler = PriorityScheduler(
-                            scanner_instances, budget_mgr, directive_bus, scan_config
+                            scanner_instances, budget_mgr, directive_bus,
+                            scan_config, host_monitor,
                         )
                         scheduler.build_from_profile(intel.profile, scan_config.scan_mode)
 
@@ -164,6 +171,9 @@ class ScanEngine:
                         while True:
                             if self._cancelled:
                                 raise ScanCancelled()
+                            if host_monitor.is_dead:
+                                raise HostUnreachable(target, host_monitor.unreachable_for)
+                            await host_monitor.probe_if_needed()
                             job_result = await scheduler.run_next(scan_target)
                             if job_result is None:
                                 break
@@ -193,8 +203,13 @@ class ScanEngine:
                         scanner_instances.clear()
                         scanner_results = {}
                     else:
+                        host_monitor = HostMonitor(
+                            target, scan_config.host_unreachable_timeout
+                        )
+                        await host_monitor.probe()
                         scanner_results = await self._run_scanners_legacy(
-                            scan_target, scanner_instances, session_id, scan_config
+                            scan_target, scanner_instances, session_id,
+                            scan_config, host_monitor
                         )
                     scanner_instances.clear()
 
@@ -276,6 +291,16 @@ class ScanEngine:
             await self.session_mgr.finalize(session_id, ScanStatus.CANCELLED)
             self._emit("cancelled", {"session_id": session_id})
 
+        except HostUnreachable as e:
+            msg = str(e)
+            print(f"[!] {msg}")
+            result.status = ScanStatus.FAILED
+            result.ended_at = datetime.utcnow()
+            result.errors.append(msg)
+            await self.session_mgr.add_error(session_id, msg)
+            await self.session_mgr.finalize(session_id, ScanStatus.FAILED)
+            self._emit("error", {"session_id": session_id, "error": msg})
+
         except Exception as e:
             import traceback
             tb = traceback.format_exc()
@@ -308,6 +333,7 @@ class ScanEngine:
         scanners: dict[str, BaseScanner],
         session_id: str,
         scan_config: ScanConfig = None,
+        host_monitor: HostMonitor = None,
     ) -> dict[str, tuple[list[Finding], list[Endpoint]]]:
         """Legacy linear scanner pipeline — used when intelligence is disabled."""
         results = {}
@@ -326,6 +352,10 @@ class ScanEngine:
         for name in scanner_order:
             if self._cancelled:
                 raise ScanCancelled()
+            if host_monitor and host_monitor.is_dead:
+                raise HostUnreachable(target.url, host_monitor.unreachable_for)
+            if host_monitor:
+                await host_monitor.probe_if_needed()
             if name not in scanners:
                 continue
             scanner = scanners[name]
