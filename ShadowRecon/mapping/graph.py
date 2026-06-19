@@ -116,9 +116,13 @@ class EndpointGraph:
             metadata={"finding_severity": finding_node.metadata.get("severity", "none")},
         )
 
+    EXCLUDE_STATUS_CODES = {404, 405, 410, 501}
+
     def build_from_results(self, endpoints: list[Endpoint], findings: list[Finding], target_url: str):
         host_node = self.add_host(target_url)
         for ep in endpoints:
+            if ep.status_code and ep.status_code in self.EXCLUDE_STATUS_CODES:
+                continue
             ep_node = self.add_endpoint(ep)
             self.link_endpoint_to_host(ep_node, host_node)
         for finding in findings:

@@ -55,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, nextTick } from 'vue'
 import { useScanStore } from '../store/scanStore'
 import RiskBadge from './RiskBadge.vue'
 import EvidenceViewer from './EvidenceViewer.vue'
@@ -90,8 +90,10 @@ async function runLlmAnalysis(findingId) {
     if (!sessionId) throw new Error('No session ID')
     const result = await store.analyzeFinding(sessionId, findingId)
     llmResults[findingId] = result
+    await nextTick()
   } catch (e) {
     llmResults[findingId] = { error: e.message }
+    await nextTick()
   } finally {
     llmLoading.value = null
   }

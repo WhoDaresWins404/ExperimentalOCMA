@@ -35,9 +35,9 @@
         </button>
       </div>
 
-      <div v-if="displayText" class="bg-cyber-surface border border-cyber-border rounded-lg p-6 mb-5">
+      <div v-if="comprehensiveResult || summary.llm_summary" :key="'llm-' + llmKey" class="bg-cyber-surface border border-cyber-border rounded-lg p-6 mb-5">
         <h2 class="text-cyber-accent font-bold mb-4">LLM Comprehensive Analysis</h2>
-        <LlmSummaryBlock :text="displayText" />
+        <LlmSummaryBlock :text="comprehensiveResult || summary.llm_summary" />
       </div>
 
       <div v-if="comprehensiveError" class="bg-red-900 border border-cyber-danger rounded-lg p-4 mb-5 text-cyber-danger">{{ comprehensiveError }}</div>
@@ -51,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
 import FindingsFeed from '../components/FindingsFeed.vue'
@@ -69,8 +69,6 @@ const summary = ref({})
 const llmLoading = ref(false)
 const comprehensiveResult = ref('')
 const comprehensiveError = ref('')
-
-const displayText = computed(() => comprehensiveResult.value || summary.value.llm_summary || '')
 
 const summaryCards = computed(() => [
   { key: 'critical', value: summary.value.critical_count || 0, label: 'Critical', color: 'text-cyber-danger' },
@@ -92,13 +90,20 @@ onMounted(async () => {
   finally { loading.value = false }
 })
 
+const llmKey = ref(0)
+
 async function runComprehensive() {
   llmLoading.value = true
   comprehensiveError.value = ''
   try {
     const result = await store.analyzeScan(sessionId)
-    if (result.error) comprehensiveError.value = result.error
-    else if (result.summary) comprehensiveResult.value = result.summary
+    if (result.error) {
+      comprehensiveError.value = result.error
+    } else {
+      comprehensiveResult.value = result.summary || result.sections?.[0] || JSON.stringify(result)
+      await nextTick()
+      llmKey.value++
+    }
   } catch (e) { comprehensiveError.value = e.message }
   finally { llmLoading.value = false }
 }
