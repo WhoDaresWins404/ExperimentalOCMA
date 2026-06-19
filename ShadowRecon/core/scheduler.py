@@ -66,6 +66,20 @@ class PriorityScheduler:
             )
             self._queue.append(job)
 
+        queued = {j.name for j in self._queue}
+        for name in self._scanners:
+            if name in queued or name in profile.skipped_scanners:
+                continue
+            if mode == "waf_only":
+                continue
+            job = ScannerJob(
+                priority=profile.scanner_priorities.get(name, 60),
+                name=name,
+                scanner=self._scanners[name],
+                time_budget=self._budget.allocate(name, weight=0.08),
+            )
+            self._queue.append(job)
+
         self._queue.sort(key=lambda j: j.priority)
 
     async def run_next(self, target: ScanTarget) -> Optional[tuple[str, tuple]]:

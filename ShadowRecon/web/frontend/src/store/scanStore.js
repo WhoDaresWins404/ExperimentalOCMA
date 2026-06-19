@@ -49,6 +49,7 @@ export const useScanStore = defineStore('scan', () => {
       crawl_depth: params.crawl_depth || 2,
       xss_mode: params.xss_mode || 'probe',
       enable_llm_payloads: params.enable_llm_payloads || false,
+      enabled_scanners: params.enabled_scanners || [],
     })
     return data
   }

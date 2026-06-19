@@ -29,6 +29,36 @@
       </label>
     </div>
 
+    <div class="bg-cyber-surface border border-cyber-border rounded-lg p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-cyber-accent font-bold text-sm">Scanner Modules</div>
+        <button type="button" @click="toggleScanners"
+          class="text-xs text-cyber-muted hover:text-cyber-accent transition-colors bg-transparent border-none cursor-pointer">
+          {{ showScanners ? 'Hide' : 'Select individual scanners' }}
+        </button>
+      </div>
+      <div v-if="showScanners" class="space-y-3">
+        <div v-for="(group, cat) in scannerGroups" :key="cat">
+          <div class="text-cyber-muted-2 text-[10px] uppercase tracking-wider mb-1.5">{{ cat }}</div>
+          <div class="flex flex-wrap gap-2">
+            <label v-for="m in group" :key="m.name"
+              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded border cursor-pointer text-xs transition-colors"
+              :class="form.enabled_scanners.includes(m.name) ? 'border-cyber-accent bg-cyber-accent/10 text-cyber-accent' : 'border-cyber-border bg-cyber-bg text-cyber-muted hover:border-cyber-accent/40'">
+              <input type="checkbox" :value="m.name" v-model="form.enabled_scanners"
+                class="accent-cyber-accent" />
+              {{ m.name }}
+            </label>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button type="button" @click="selectAllScanners"
+            class="text-[10px] px-2 py-1 rounded bg-cyber-bg border border-cyber-border text-cyber-muted hover:text-cyber-accent transition-colors cursor-pointer">Select All</button>
+          <button type="button" @click="deselectAllScanners"
+            class="text-[10px] px-2 py-1 rounded bg-cyber-bg border border-cyber-border text-cyber-muted hover:text-cyber-accent transition-colors cursor-pointer">Deselect All</button>
+        </div>
+      </div>
+    </div>
+
     <template v-if="scanProfile !== 'custom'">
       <details class="bg-cyber-surface border border-cyber-border rounded-lg p-4 group">
         <summary class="text-cyber-accent font-bold text-sm cursor-pointer outline-none select-none">View Preset Settings</summary>
@@ -261,13 +291,25 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 
 const emit = defineEmits(['start'])
 const props = defineProps({ campaignId: String })
 const submitting = ref(false)
 const llmTesting = ref(false)
 const llmResult = ref(null)
+const showScanners = ref(false)
+const scannerManifests = ref([])
+
+const scannerGroups = computed(() => {
+  const groups = {}
+  for (const m of scannerManifests.value) {
+    const cat = m.category || 'other'
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push(m)
+  }
+  return groups
+})
 
 const API = ''
 
@@ -312,6 +354,7 @@ const form = reactive({
   crawl_depth: 1,
   xss_mode: 'probe',
   enable_llm_payloads: false,
+  enabled_scanners: [],
 })
 
 watch(scanProfile, (profile) => {
@@ -342,6 +385,31 @@ async function testLlm() {
   } finally {
     llmTesting.value = false
   }
+}
+
+async function toggleScanners() {
+  showScanners.value = !showScanners.value
+  if (showScanners.value && scannerManifests.value.length === 0) {
+    try {
+      const resp = await fetch(`${API}/api/scanners`)
+      if (resp.ok) {
+        scannerManifests.value = await resp.json()
+        if (form.enabled_scanners.length === 0) {
+          form.enabled_scanners = scannerManifests.value.map(m => m.name)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load scanners', e)
+    }
+  }
+}
+
+function selectAllScanners() {
+  form.enabled_scanners = scannerManifests.value.map(m => m.name)
+}
+
+function deselectAllScanners() {
+  form.enabled_scanners = []
 }
 
 async function handleSubmit() {

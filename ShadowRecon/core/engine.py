@@ -142,9 +142,12 @@ class ScanEngine:
                     await self.session_mgr.update_status(session_id, ScanStatus.ADAPTIVE_SCAN)
                     self._emit("status", {"session_id": session_id, "status": ScanStatus.ADAPTIVE_SCAN.value})
 
-                    scanner_instances = ScannerRegistry.instantiate_all(
+                    instances = ScannerRegistry.instantiate_all(
                         scan_config, session_id, self._waf_state, directive_bus
                     )
+                    if scan_config.enabled_scanners:
+                        instances = {k: v for k, v in instances.items() if k in scan_config.enabled_scanners}
+                    scanner_instances = instances
 
                     if scan_config.scan_mode == "waf_only":
                         all_findings = waf_findings[:]
@@ -179,9 +182,12 @@ class ScanEngine:
                     await self.session_mgr.update_status(session_id, ScanStatus.SCANNING)
                     self._emit("status", {"session_id": session_id, "status": ScanStatus.SCANNING.value})
 
-                    scanner_instances = ScannerRegistry.instantiate_all(
+                    instances = ScannerRegistry.instantiate_all(
                         scan_config, session_id, self._waf_state
                     )
+                    if scan_config.enabled_scanners:
+                        instances = {k: v for k, v in instances.items() if k in scan_config.enabled_scanners}
+                    scanner_instances = instances
 
                     if scan_config.scan_mode == "waf_only":
                         scanner_instances.clear()
@@ -311,7 +317,11 @@ class ScanEngine:
         if mode == "light":
             scanner_order = ["crawler_scanner", "directory_scanner", "misconfig_scanner"]
         else:
-            scanner_order = ["crawler_scanner", "api_scanner", "directory_scanner", "misconfig_scanner", "anomaly_detector", "form_scanner"]
+            scanner_order = ["crawler_scanner", "api_scanner", "directory_scanner",
+                             "misconfig_scanner", "anomaly_detector", "form_scanner"]
+        for name in scanners:
+            if name not in scanner_order:
+                scanner_order.append(name)
 
         for name in scanner_order:
             if self._cancelled:
