@@ -85,6 +85,8 @@ class ScanSession(BaseModel):
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     error_log: list[str] = Field(default_factory=list)
+    scanner_state: dict[str, Any] = Field(default_factory=dict)
+    continue_from: Optional[str] = None
 
 
 class ScanTarget(BaseModel):

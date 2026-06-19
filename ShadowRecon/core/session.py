@@ -31,13 +31,15 @@ class ScanSessionManager:
         self.db = db
 
     async def create(
-        self, campaign_id: str, target: str, config_snapshot: dict = None
+        self, campaign_id: str, target: str, config_snapshot: dict = None,
+        continue_from: str = None,
     ) -> ScanSession:
         session = ScanSession(
             campaign_id=campaign_id,
             target=target,
             config_snapshot=config_snapshot or {},
             status=ScanStatus.PENDING,
+            continue_from=continue_from,
         )
         await self.db.create_scan_session(session)
         return session
@@ -72,6 +74,16 @@ class ScanSessionManager:
             )).scalar_one_or_none()
             if row:
                 row.stats = json.dumps(stats)
+
+    async def update_scanner_state(self, session_id: str, scanner_state: dict):
+        import json
+        async with self.db.session() as s:
+            from .database import ScanSessionRow, select
+            row = (await s.execute(
+                select(ScanSessionRow).where(ScanSessionRow.id == session_id)
+            )).scalar_one_or_none()
+            if row:
+                row.scanner_state = json.dumps(scanner_state)
 
     async def finalize(self, session_id: str, status: ScanStatus = ScanStatus.COMPLETED):
         await self.db.update_scan_status(session_id, status)

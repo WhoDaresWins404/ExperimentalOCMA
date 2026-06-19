@@ -42,6 +42,8 @@ class ScanSessionRow(Base):
     ended_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     error_log: Mapped[str] = mapped_column(Text, default="[]")
     stats: Mapped[str] = mapped_column(Text, default="{}")
+    scanner_state: Mapped[str] = mapped_column(Text, default="{}")
+    continue_from: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
     campaign = relationship("CampaignRow", back_populates="sessions")
     endpoints = relationship("EndpointRow", back_populates="session", cascade="all, delete-orphan")
@@ -244,6 +246,8 @@ class Database:
                 started_at=session.started_at.isoformat() if session.started_at else None,
                 ended_at=session.ended_at.isoformat() if session.ended_at else None,
                 error_log=json.dumps(session.error_log),
+                scanner_state=json.dumps(session.scanner_state),
+                continue_from=session.continue_from,
             )
             s.add(row)
             return session

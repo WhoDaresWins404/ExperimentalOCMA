@@ -42,12 +42,17 @@ class ScanRequest(BaseModel):
     xss_mode: str = "probe"
     enable_llm_payloads: bool = False
     enabled_scanners: list[str] = []
+    continue_from: str | None = None
 
 
 class CampaignCreate(BaseModel):
     name: str
     description: str = ""
     tags: list[str] = []
+
+
+class CancelRequest(BaseModel):
+    reason: str = "user_requested"
 
 
 def create_app(config: ScanConfig = None) -> FastAPI:
@@ -188,13 +193,26 @@ def create_app(config: ScanConfig = None) -> FastAPI:
             "enabled_scanners": req.enabled_scanners,
         }
 
+        resume_extra = None
+        if req.continue_from:
+            old_session = await engine.session_mgr.get(req.continue_from)
+            if old_session:
+                old_scanner_state = old_session.get("scanner_state", "{}")
+                import json as _json
+                if isinstance(old_scanner_state, str):
+                    old_scanner_state = _json.loads(old_scanner_state)
+                completed = old_scanner_state.get("completed_scanners", [])
+                if completed:
+                    resume_extra = {"_resume_state": {"completed_scanners": completed}}
+
         campaign = await engine.campaign_mgr.create(
             req.campaign_name,
             req.campaign_description,
         )
 
         session = await engine.session_mgr.create(
-            campaign.id, req.url, config_override
+            campaign.id, req.url, config_override,
+            continue_from=req.continue_from,
         )
 
         async def progress_callback(event: str, data: dict):
@@ -213,8 +231,11 @@ def create_app(config: ScanConfig = None) -> FastAPI:
 
         async def wrapped_scan():
             try:
+                scan_override = config_override.copy()
+                if resume_extra:
+                    scan_override.update(resume_extra)
                 result = await engine.run_scan(
-                    campaign.id, req.url, config_override, session_id=session.id
+                    campaign.id, req.url, scan_override, session_id=session.id
                 )
                 if result.status == ScanStatus.COMPLETED:
                     mapper = Mapper(session.id)
@@ -441,6 +462,18 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                 websocket_clients[session_id].remove(websocket)
                 if not websocket_clients[session_id]:
                     del websocket_clients[session_id]
+
+    @app.post("/api/scan/{session_id}/cancel")
+    async def cancel_scan(session_id: str, req: CancelRequest = None):
+        session = await engine.session_mgr.get(session_id)
+        if not session:
+            raise HTTPException(404, "Session not found")
+        status = session.get("status", "")
+        if status in ("completed", "cancelled", "failed"):
+            raise HTTPException(400, f"Scan is already {status}")
+        reason = req.reason if req else "user_requested"
+        engine.cancel(reason)
+        return {"status": "cancelling", "session_id": session_id, "reason": reason}
 
     @app.delete("/api/scan/{session_id}")
     async def delete_scan(session_id: str):

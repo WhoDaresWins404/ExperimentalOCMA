@@ -10,6 +10,16 @@
     <div v-else-if="error" class="bg-red-900 border border-cyber-danger rounded-lg p-4 text-cyber-danger mb-5">{{ error }}</div>
 
     <div v-else>
+      <div v-if="sessionStatus === 'cancelled'"
+        class="bg-yellow-900 border border-cyber-warning rounded-lg p-4 text-cyber-warning mb-5 flex items-center gap-3 flex-wrap">
+        Scan cancelled — partial results shown below
+      </div>
+      <div v-else-if="sessionStatus === 'failed'"
+        class="bg-red-900 border border-cyber-danger rounded-lg p-4 text-cyber-danger mb-5">
+        Scan failed — partial results shown below
+        <div v-for="(err, i) in sessionErrors" :key="i" class="text-red-300 text-xs mt-1 font-mono">{{ err }}</div>
+      </div>
+
       <div v-if="targetUrl" class="bg-cyber-surface border border-cyber-border rounded-lg p-4 mb-6">
         <div class="text-cyber-muted-2 text-xs uppercase tracking-wider mb-0.5">Target</div>
         <div class="text-cyber-text font-mono text-base break-all">{{ targetUrl }}</div>
@@ -64,6 +74,8 @@ const sessionId = props.id || route.params.id
 const loading = ref(true)
 const error = ref(null)
 const targetUrl = ref('')
+const sessionStatus = ref('')
+const sessionErrors = ref([])
 const findings = ref([])
 const summary = ref({})
 const llmLoading = ref(false)
@@ -83,8 +95,12 @@ onMounted(async () => {
   try {
     const result = await store.getScanResults(sessionId)
     targetUrl.value = result.session?.target || ''
+    sessionStatus.value = result.session?.status || ''
     findings.value = result.findings || []
     summary.value = result.session?.stats || result.session || {}
+    sessionErrors.value = result.session?.error_log
+      ? (typeof result.session.error_log === 'string' ? JSON.parse(result.session.error_log) : result.session.error_log)
+      : []
     if (!Array.isArray(findings.value)) findings.value = []
   } catch (e) { error.value = 'Failed to load report: ' + e.message }
   finally { loading.value = false }

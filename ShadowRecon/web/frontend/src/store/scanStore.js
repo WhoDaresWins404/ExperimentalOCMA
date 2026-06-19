@@ -11,6 +11,7 @@ export const useScanStore = defineStore('scan', () => {
   const endpoints = ref([])
   const graphData = ref({ nodes: [], edges: [] })
   const scanStatus = ref('idle')
+  const cancelReason = ref('')
   const ws = ref(null)
   const connected = ref(false)
 
@@ -79,6 +80,17 @@ export const useScanStore = defineStore('scan', () => {
     return data
   }
 
+  async function cancelScan(sessionId, reason = 'user_requested') {
+    try {
+      const { data } = await axios.post(`${API}/scan/${sessionId}/cancel`, { reason })
+      cancelReason.value = reason
+      return data
+    } catch (e) {
+      console.error('Failed to cancel scan:', e)
+      throw e
+    }
+  }
+
   async function analyzeScan(sessionId) {
     const { data } = await axios.post(`${API}/llm/analyze-scan/${sessionId}`)
     return data
@@ -123,6 +135,7 @@ export const useScanStore = defineStore('scan', () => {
         break
       case 'cancelled':
         scanStatus.value = 'cancelled'
+        cancelReason.value = data.reason || 'user_requested'
         break
     }
   }
@@ -142,14 +155,15 @@ export const useScanStore = defineStore('scan', () => {
     endpoints.value = []
     graphData.value = { nodes: [], edges: [] }
     scanStatus.value = 'idle'
+    cancelReason.value = ''
     disconnectWebSocket()
   }
 
   return {
     campaigns, currentSession, findings, endpoints, graphData,
-    scanStatus, connected,
+    scanStatus, cancelReason, connected,
     fetchCampaigns, getCampaign, startScan, getScanStatus,
-    getScanResults, getScanMap, analyzeFinding, analyzeScan,
+    getScanResults, getScanMap, analyzeFinding, analyzeScan, cancelScan,
     connectWebSocket, disconnectWebSocket, reset,
   }
 })

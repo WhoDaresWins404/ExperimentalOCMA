@@ -37,6 +37,7 @@ class ScanEngine:
         self.deduplicator = Deduplicator()
         self._progress_callbacks: list[ProgressCallback] = []
         self._cancelled = False
+        self._cancel_reason: str = "user_requested"
         self._waf_state: dict = {}
 
     def on_progress(self, callback: ProgressCallback):
@@ -52,8 +53,9 @@ class ScanEngine:
             except Exception:
                 pass
 
-    def cancel(self):
+    def cancel(self, reason: str = "user_requested"):
         self._cancelled = True
+        self._cancel_reason = reason
 
     async def initialize(self):
         await self.db.initialize()
@@ -78,8 +80,11 @@ class ScanEngine:
         session_id: str = None,
     ) -> ScanResult:
         self._cancelled = False
+        self._cancel_reason = "user_requested"
+        resume_state = None
         merged = self.config.model_dump()
         if config_override:
+            resume_state = config_override.pop("_resume_state", None)
             for key, value in config_override.items():
                 if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
                     merged[key].update(value)
@@ -148,6 +153,10 @@ class ScanEngine:
                     )
                     if scan_config.enabled_scanners:
                         instances = {k: v for k, v in instances.items() if k in scan_config.enabled_scanners}
+                    if resume_state:
+                        completed = set(resume_state.get("completed_scanners", []))
+                        if completed:
+                            instances = {k: v for k, v in instances.items() if k not in completed}
                     scanner_instances = instances
 
                     if scan_config.scan_mode == "waf_only":
@@ -170,6 +179,13 @@ class ScanEngine:
 
                         while True:
                             if self._cancelled:
+                                for ep in all_endpoints:
+                                    await self.db.add_endpoint(ep)
+                                for f in all_findings:
+                                    await self.db.add_finding(f)
+                                await self.session_mgr.update_scanner_state(
+                                    session_id, {"completed_scanners": list(scheduler.completed)}
+                                )
                                 raise ScanCancelled()
                             if host_monitor.is_dead:
                                 raise HostUnreachable(target, host_monitor.unreachable_for)
@@ -185,6 +201,9 @@ class ScanEngine:
                             all_findings.extend(findings)
                             all_endpoints.extend(endpoints)
 
+                    await self.session_mgr.update_scanner_state(
+                        session_id, {"completed_scanners": list(scheduler.completed)}
+                    )
                     scanner_instances.clear()
 
                 else:
@@ -197,6 +216,10 @@ class ScanEngine:
                     )
                     if scan_config.enabled_scanners:
                         instances = {k: v for k, v in instances.items() if k in scan_config.enabled_scanners}
+                    if resume_state:
+                        completed = set(resume_state.get("completed_scanners", []))
+                        if completed:
+                            instances = {k: v for k, v in instances.items() if k not in completed}
                     scanner_instances = instances
 
                     if scan_config.scan_mode == "waf_only":
@@ -289,7 +312,10 @@ class ScanEngine:
             result.status = ScanStatus.CANCELLED
             result.ended_at = datetime.utcnow()
             await self.session_mgr.finalize(session_id, ScanStatus.CANCELLED)
-            self._emit("cancelled", {"session_id": session_id})
+            self._emit("cancelled", {
+                "session_id": session_id,
+                "reason": self._cancel_reason or "user_requested",
+            })
 
         except HostUnreachable as e:
             msg = str(e)
@@ -337,6 +363,7 @@ class ScanEngine:
     ) -> dict[str, tuple[list[Finding], list[Endpoint]]]:
         """Legacy linear scanner pipeline — used when intelligence is disabled."""
         results = {}
+        completed_scanners = []
 
         cfg = scan_config or self.config
         mode = cfg.scan_mode
@@ -351,6 +378,9 @@ class ScanEngine:
 
         for name in scanner_order:
             if self._cancelled:
+                await self.session_mgr.update_scanner_state(
+                    session_id, {"completed_scanners": completed_scanners}
+                )
                 raise ScanCancelled()
             if host_monitor and host_monitor.is_dead:
                 raise HostUnreachable(target.url, host_monitor.unreachable_for)
@@ -363,6 +393,10 @@ class ScanEngine:
                 self._emit("scanner_start", {"scanner": name, "session_id": session_id})
                 findings, endpoints = await scanner.scan(target)
                 results[name] = (findings, endpoints)
+                completed_scanners.append(name)
+                await self.session_mgr.update_scanner_state(
+                    session_id, {"completed_scanners": completed_scanners}
+                )
                 self._emit("scanner_done", {
                     "scanner": name,
                     "findings": len(findings),
