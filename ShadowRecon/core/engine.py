@@ -183,8 +183,8 @@ class ScanEngine:
                                     await self.db.add_endpoint(ep)
                                 for f in all_findings:
                                     await self.db.add_finding(f)
-                                await self.session_mgr.update_scanner_state(
-                                    session_id, {"completed_scanners": list(scheduler.completed)}
+                                await self._update_scanner_state(
+                                    session_id, scheduler
                                 )
                                 raise ScanCancelled()
                             if host_monitor.is_dead:
@@ -201,9 +201,9 @@ class ScanEngine:
                             all_findings.extend(findings)
                             all_endpoints.extend(endpoints)
 
-                    await self.session_mgr.update_scanner_state(
-                        session_id, {"completed_scanners": list(scheduler.completed)}
-                    )
+                        await self._update_scanner_state(
+                            session_id, scheduler
+                        )
                     scanner_instances.clear()
 
                 else:
@@ -339,6 +339,13 @@ class ScanEngine:
             self._emit("error", {"session_id": session_id, "error": str(e), "traceback": tb})
 
         return result
+
+    async def _update_scanner_state(self, session_id: str, scheduler):
+        """Persist completed scanner names, avoiding property descriptor issues."""
+        completed = list(scheduler._completed) if scheduler else []
+        await self.session_mgr.update_scanner_state(
+            session_id, {"completed_scanners": completed}
+        )
 
     async def _run_waf_check(self, target: str, session_id: str, scan_config: ScanConfig = None) -> tuple[list[Finding], list[Endpoint]]:
         from scanners.waf_detector import WAFDetector

@@ -77,13 +77,14 @@ class ScanSessionManager:
 
     async def update_scanner_state(self, session_id: str, scanner_state: dict):
         import json
+        safe = json.loads(json.dumps(scanner_state, default=str))
         async with self.db.session() as s:
             from .database import ScanSessionRow, select
             row = (await s.execute(
                 select(ScanSessionRow).where(ScanSessionRow.id == session_id)
             )).scalar_one_or_none()
             if row:
-                row.scanner_state = json.dumps(scanner_state)
+                row.scanner_state = json.dumps(safe)
 
     async def finalize(self, session_id: str, status: ScanStatus = ScanStatus.COMPLETED):
         await self.db.update_scan_status(session_id, status)
