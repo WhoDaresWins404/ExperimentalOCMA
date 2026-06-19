@@ -48,10 +48,16 @@ class OllamaProvider(LLMProvider):
 
     async def _parse_json_response(self, text: str) -> dict:
         text = text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
+        # Strip markdown code fences wherever they appear
+        if "```" in text:
+            parts = text.split("```")
+            for i, part in enumerate(parts):
+                candidate = part.strip()
+                if candidate.startswith("json"):
+                    candidate = candidate[4:].strip()
+                if candidate.startswith("{") and candidate.endswith("}"):
+                    text = candidate
+                    break
         try:
             return json.loads(text)
         except json.JSONDecodeError:

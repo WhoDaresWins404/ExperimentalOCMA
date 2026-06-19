@@ -96,13 +96,28 @@ class LLMEnhancer:
                 timeout=120,
             )
             parsed = await provider._parse_json_response(response)
-            analysis = {
-                "technical_impact": self._coerce_str(parsed.get("technical_impact", "")),
-                "exploitation_path": self._coerce_str(parsed.get("exploitation_path", "")),
-                "remediation": self._coerce_str(parsed.get("remediation", "")),
-                "chaining_potential": self._coerce_str(parsed.get("chaining_potential", "")),
-                "analyst_confidence": self._coerce_str(parsed.get("analyst_confidence", "")),
-            }
+
+            has_raw = "raw_response" in parsed and not any(
+                parsed.get(k) for k in ("technical_impact", "exploitation_path",
+                                        "remediation", "chaining_potential", "analyst_confidence")
+            )
+            if has_raw:
+                raw = parsed["raw_response"]
+                analysis = {
+                    "technical_impact": raw,
+                    "exploitation_path": "",
+                    "remediation": "",
+                    "chaining_potential": "",
+                    "analyst_confidence": "",
+                }
+            else:
+                analysis = {
+                    "technical_impact": self._coerce_str(parsed.get("technical_impact", "")),
+                    "exploitation_path": self._coerce_str(parsed.get("exploitation_path", "")),
+                    "remediation": self._coerce_str(parsed.get("remediation", "")),
+                    "chaining_potential": self._coerce_str(parsed.get("chaining_potential", "")),
+                    "analyst_confidence": self._coerce_str(parsed.get("analyst_confidence", "")),
+                }
 
             finding.llm_analysis = LLMAnalysis(
                 natural_description=analysis["technical_impact"],

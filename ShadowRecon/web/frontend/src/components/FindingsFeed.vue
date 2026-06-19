@@ -49,6 +49,7 @@
           <div class="text-cyber-text text-xs leading-relaxed whitespace-pre-wrap">{{ llmResults[f.id].analyst_confidence }}</div>
         </div>
         <div v-if="llmResults[f.id].error" class="text-cyber-danger text-xs">{{ llmResults[f.id].error }}</div>
+        <div v-if="hasLlmResult(f.id) && !anyLlmField(f.id)" class="text-cyber-muted text-xs italic">Analysis received, but fields could not be parsed.</div>
       </div>
     </div>
   </div>
@@ -81,6 +82,12 @@ function severityBorder(severity) {
 
 function hasEvidence(f) { return f.evidence && Object.keys(f.evidence).length > 0 }
 function toggleExpand(id) { expanded.value = expanded.value === id ? null : id }
+function hasLlmResult(id) { return !!llmResults[id] }
+function anyLlmField(id) {
+  const r = llmResults[id]
+  if (!r) return false
+  return !!(r.technical_impact || r.exploitation_path || r.remediation || r.chaining_potential || r.analyst_confidence)
+}
 
 async function runLlmAnalysis(findingId) {
   llmLoading.value = findingId
