@@ -10,6 +10,11 @@
     <div v-else-if="error" class="bg-red-900 border border-cyber-danger rounded-lg p-4 text-cyber-danger mb-5">{{ error }}</div>
 
     <div v-else>
+      <div v-if="targetUrl" class="bg-cyber-surface border border-cyber-border rounded-lg p-4 mb-6">
+        <div class="text-cyber-muted-2 text-xs uppercase tracking-wider mb-0.5">Target</div>
+        <div class="text-cyber-text font-mono text-base break-all">{{ targetUrl }}</div>
+      </div>
+
       <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4 mb-6">
         <div v-for="card in summaryCards" :key="card.key" class="bg-cyber-surface border border-cyber-border rounded-lg p-5 text-center">
           <div class="text-2xl font-bold" :class="card.color">{{ card.value }}</div>
@@ -63,6 +68,7 @@ const store = useScanStore()
 const sessionId = props.id || route.params.id
 const loading = ref(true)
 const error = ref(null)
+const targetUrl = ref('')
 const findings = ref([])
 const summary = ref({})
 const llmLoading = ref(false)
@@ -81,6 +87,7 @@ const summaryCards = computed(() => [
 onMounted(async () => {
   try {
     const result = await store.getScanResults(sessionId)
+    targetUrl.value = result.session?.target || ''
     findings.value = result.findings || []
     summary.value = result.session?.stats || result.session || {}
     if (!Array.isArray(findings.value)) findings.value = []
