@@ -185,6 +185,18 @@ class Database:
     async def initialize(self):
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            # Migrate existing tables — add columns if missing
+            await conn.run_sync(self._migrate_session_table)
+
+    @staticmethod
+    def _migrate_session_table(conn):
+        import sqlalchemy as sa
+        inspector = sa.inspect(conn)
+        columns = {c["name"] for c in inspector.get_columns("scan_sessions")}
+        if "scanner_state" not in columns:
+            conn.execute(sa.text("ALTER TABLE scan_sessions ADD COLUMN scanner_state TEXT DEFAULT '{}'"))
+        if "continue_from" not in columns:
+            conn.execute(sa.text("ALTER TABLE scan_sessions ADD COLUMN continue_from VARCHAR(32)"))
 
     async def close(self):
         await self.engine.dispose()
