@@ -19,16 +19,6 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-4 gap-2.5">
-      <label v-for="p in profileDefs" :key="p.key"
-        :class="['flex flex-col items-center gap-1 bg-cyber-surface border-2 rounded-lg p-3.5 text-center cursor-pointer transition-all relative', scanProfile === p.key ? 'border-cyber-accent bg-cyber-surface-2' : 'border-cyber-border hover:border-cyber-accent']">
-        <input type="radio" v-model="scanProfile" :value="p.key" class="absolute opacity-0 pointer-events-none" />
-        <div class="text-cyber-text font-bold text-sm">{{ p.title }}</div>
-        <div class="text-cyber-muted-2 text-xs leading-tight">{{ p.desc }}</div>
-        <div class="text-[0.6rem] uppercase tracking-wider px-2 py-0.5 rounded mt-1" :class="badgeClass(p.key)">{{ p.badge }}</div>
-      </label>
-    </div>
-
     <div class="bg-cyber-surface border border-cyber-border rounded-lg p-4">
       <div class="flex items-center justify-between mb-3">
         <div class="text-cyber-accent font-bold text-sm">Scanner Modules</div>
@@ -57,6 +47,16 @@
             class="text-[10px] px-2 py-1 rounded bg-cyber-bg border border-cyber-border text-cyber-muted hover:text-cyber-accent transition-colors cursor-pointer">Deselect All</button>
         </div>
       </div>
+    </div>
+
+    <div class="grid grid-cols-4 gap-2.5">
+      <label v-for="p in profileDefs" :key="p.key"
+        :class="['flex flex-col items-center gap-1 bg-cyber-surface border-2 rounded-lg p-3.5 text-center cursor-pointer transition-all relative', scanProfile === p.key ? 'border-cyber-accent bg-cyber-surface-2' : 'border-cyber-border hover:border-cyber-accent']">
+        <input type="radio" v-model="scanProfile" :value="p.key" class="absolute opacity-0 pointer-events-none" />
+        <div class="text-cyber-text font-bold text-sm">{{ p.title }}</div>
+        <div class="text-cyber-muted-2 text-xs leading-tight">{{ p.desc }}</div>
+        <div class="text-[0.6rem] uppercase tracking-wider px-2 py-0.5 rounded mt-1" :class="badgeClass(p.key)">{{ p.badge }}</div>
+      </label>
     </div>
 
     <template v-if="scanProfile !== 'custom'">
