@@ -4,7 +4,7 @@ from html.parser import HTMLParser
 
 from .base import BaseScanner
 from .registry import register_scanner
-from core.models import ScanTarget, EndpointType
+from core.models import ScanTarget, EndpointType, ScannerManifest
 
 
 SKIP_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".css", ".js",
@@ -29,7 +29,14 @@ class _LinkExtractor(HTMLParser):
                 self.links.add(src)
 
 
-@register_scanner
+@register_scanner(manifest=ScannerManifest(
+    name="crawler_scanner",
+    category="recon",
+    risk_level="safe",
+    estimated_cost=70,
+    produces_endpoint_types=["WEB_PAGE", "STATIC_ASSET"],
+    produces_tag_patterns=["crawl", "link"],
+))
 class CrawlerScanner(BaseScanner):
     name = "crawler_scanner"
 

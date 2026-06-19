@@ -7,3 +7,15 @@ from .waf_detector import WAFDetector
 from .anomaly_detector import AnomalyDetector
 from .crawler_scanner import CrawlerScanner
 from .form_scanner import FormScanner
+from .cors_scanner import CorsScanner
+from .redirect_scanner import RedirectScanner
+from .ratelimit_scanner import RateLimitScanner
+from .cmdi_scanner import CMDIScanner
+from .ssti_scanner import SSTIScanner
+from .sqli_scanner import SQLIScanner
+from .graphql_scanner import GraphQLScanner
+from .websocket_scanner import WebSocketScanner
+from .api_fuzzer import ApiFuzzer
+from .subdomain_scanner import SubdomainScanner
+from .js_analyzer import JsAnalyzer
+from .ssrf_scanner import SSRFScanner

@@ -95,6 +95,7 @@ class ScanConfig(BaseModel):
     xss_mode: str = "probe"
     cookies: dict[str, str] = Field(default_factory=dict)
     headers: dict[str, str] = Field(default_factory=dict)
+    enabled_scanners: list[str] = Field(default_factory=list)
 
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
     auth: AuthConfig = Field(default_factory=AuthConfig)

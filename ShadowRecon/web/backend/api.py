@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from core.config import ScanConfig
 from core.engine import ScanEngine
 from core.models import ScanStatus, ScanSummary, ScanSession
+from scanners.registry import ScannerRegistry
 from core.exceptions import LLMUnavailable
 from mapping.mapper import Mapper
 from reporting.report_generator import ReportGenerator
@@ -40,6 +41,7 @@ class ScanRequest(BaseModel):
     crawl_depth: int = 2
     xss_mode: str = "probe"
     enable_llm_payloads: bool = False
+    enabled_scanners: list[str] = []
 
 
 class CampaignCreate(BaseModel):
@@ -183,6 +185,7 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                 "basic_username": req.auth_basic_username,
                 "basic_password": req.auth_basic_password,
             },
+            "enabled_scanners": req.enabled_scanners,
         }
 
         campaign = await engine.campaign_mgr.create(
@@ -385,6 +388,14 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         stats["llm_summary"] = summary_text
         await engine.session_mgr.update_stats(session_id, stats)
         return {"summary": summary_text, "sections": analysis}
+
+    @app.get("/api/scanners")
+    async def list_scanners():
+        manifests = ScannerRegistry.get_all_manifests()
+        return sorted(
+            [m.__dict__ for m in manifests.values()],
+            key=lambda x: (x["category"], x["name"]),
+        )
 
     @app.get("/api/export/training-data/{campaign_id}")
     async def export_training_data(campaign_id: str):

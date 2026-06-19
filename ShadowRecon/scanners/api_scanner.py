@@ -5,7 +5,7 @@ from urllib.parse import urljoin, urlparse
 
 from .base import BaseScanner
 from .registry import register_scanner
-from core.models import ScanTarget, EndpointType
+from core.models import ScanTarget, EndpointType, ScannerManifest
 
 
 API_WORDLIST_PATH = Path(__file__).parent.parent / "data" / "wordlists" / "api_paths.txt"
@@ -30,7 +30,14 @@ API_PATTERNS = re.compile(
 )
 
 
-@register_scanner
+@register_scanner(manifest=ScannerManifest(
+    name="api_scanner",
+    category="discovery",
+    risk_level="safe",
+    estimated_cost=50,
+    produces_endpoint_types=["API_REST", "API_GRAPHQL"],
+    produces_tag_patterns=["api", "swagger", "graphql"],
+))
 class ApiScanner(BaseScanner):
     name = "api_scanner"
 

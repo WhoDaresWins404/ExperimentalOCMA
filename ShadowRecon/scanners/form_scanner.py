@@ -3,7 +3,7 @@ from html.parser import HTMLParser
 
 from .base import BaseScanner
 from .registry import register_scanner
-from core.models import ScanTarget
+from core.models import ScanTarget, ScannerManifest
 
 
 class _FormExtractor(HTMLParser):
@@ -45,7 +45,13 @@ XSS_PROBES = [
 ]
 
 
-@register_scanner
+@register_scanner(manifest=ScannerManifest(
+    name="form_scanner",
+    category="discovery",
+    risk_level="moderate",
+    estimated_cost=30,
+    produces_tag_patterns=["form", "xss", "csrf"],
+))
 class FormScanner(BaseScanner):
     name = "form_scanner"
 

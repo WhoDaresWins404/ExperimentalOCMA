@@ -6,11 +6,17 @@ from urllib.parse import urlparse
 
 from .base import BaseScanner
 from .registry import register_scanner
-from core.models import ScanTarget, EndpointType
+from core.models import ScanTarget, EndpointType, ScannerManifest
 from core.exceptions import WAFDetected
 
 
-@register_scanner
+@register_scanner(manifest=ScannerManifest(
+    name="anomaly_detector",
+    category="analysis",
+    risk_level="safe",
+    estimated_cost=15,
+    produces_tag_patterns=["anomaly", "timing", "behavior"],
+))
 class AnomalyDetector(BaseScanner):
     name = "anomaly_detector"
 

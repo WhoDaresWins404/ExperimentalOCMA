@@ -56,6 +56,11 @@ class ScannerRegistry:
         return instances
 
 
-def register_scanner(cls, manifest: ScannerManifest = None):
+def register_scanner(cls=None, manifest: ScannerManifest = None):
+    if cls is None:
+        def wrapper(kls):
+            ScannerRegistry.register(kls, manifest)
+            return kls
+        return wrapper
     ScannerRegistry.register(cls, manifest)
     return cls

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from .base import BaseScanner
 from .registry import register_scanner
-from core.models import ScanTarget, EndpointType
+from core.models import ScanTarget, EndpointType, ScannerManifest
 
 
 DIR_WORDLIST_PATH = Path(__file__).parent.parent / "data" / "wordlists" / "directory_paths.txt"
@@ -35,7 +35,14 @@ ADMIN_PATHS = [
 ]
 
 
-@register_scanner
+@register_scanner(manifest=ScannerManifest(
+    name="directory_scanner",
+    category="discovery",
+    risk_level="safe",
+    estimated_cost=60,
+    produces_endpoint_types=["WEB_PAGE", "HIDDEN_PATH", "BACKUP_FILE", "ADMIN_PANEL"],
+    produces_tag_patterns=["directory", "sensitive", "backup"],
+))
 class DirectoryScanner(BaseScanner):
     name = "directory_scanner"
 

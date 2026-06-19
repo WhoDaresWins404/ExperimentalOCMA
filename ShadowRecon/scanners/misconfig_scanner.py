@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from .base import BaseScanner
 from .registry import register_scanner
-from core.models import ScanTarget, EndpointType
+from core.models import ScanTarget, EndpointType, ScannerManifest
 from core.exceptions import TargetUnreachable
 
 
@@ -44,7 +44,13 @@ STACK_TRACE_PATTERNS = re.compile(
 )
 
 
-@register_scanner
+@register_scanner(manifest=ScannerManifest(
+    name="misconfig_scanner",
+    category="analysis",
+    risk_level="safe",
+    estimated_cost=40,
+    produces_tag_patterns=["misconfiguration", "headers", "debug"],
+))
 class MisconfigScanner(BaseScanner):
     name = "misconfig_scanner"
 

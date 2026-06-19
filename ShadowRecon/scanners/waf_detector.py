@@ -6,7 +6,7 @@ from typing import Optional
 
 from .base import BaseScanner
 from .registry import register_scanner
-from core.models import ScanTarget, EndpointType
+from core.models import ScanTarget, EndpointType, ScannerManifest
 from core.exceptions import WAFDetected
 
 
@@ -66,7 +66,13 @@ EVASION_TECHNIQUES = {
 }
 
 
-@register_scanner
+@register_scanner(manifest=ScannerManifest(
+    name="waf_detector",
+    category="analysis",
+    risk_level="safe",
+    estimated_cost=20,
+    produces_tag_patterns=["waf", "evasion"],
+))
 class WAFDetector(BaseScanner):
     name = "waf_detector"
 

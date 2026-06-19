@@ -7,6 +7,7 @@
       </div>
       <div class="flex items-center gap-5">
         <router-link to="/dashboard" class="text-cyber-muted hover:text-cyber-accent text-sm no-underline transition-colors">Dashboard</router-link>
+        <router-link to="/scanners" class="text-cyber-muted hover:text-cyber-accent text-sm no-underline transition-colors">Scanner Modules</router-link>
       </div>
     </nav>
     <main class="flex-1 p-6 max-w-[1400px] mx-auto w-full">
