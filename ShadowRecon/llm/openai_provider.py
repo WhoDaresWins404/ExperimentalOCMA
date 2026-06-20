@@ -16,7 +16,8 @@ class OpenAIProvider(LLMProvider):
         self.api_base = (config.api_base or "https://api.openai.com/v1").rstrip("/")
         self.api_key = config.api_key
 
-    async def _request(self, prompt: str, system: str = "") -> str:
+    async def _request(self, prompt: str, system: str = "", timeout: int = None) -> str:
+        effective_timeout = timeout if timeout is not None else self.config.timeout
         url = f"{self.api_base}/chat/completions"
         payload = {
             "model": self.config.model_name or "gpt-4",
@@ -28,9 +29,9 @@ class OpenAIProvider(LLMProvider):
             "max_tokens": self.config.max_tokens,
         }
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-        print(f"[LLM] OpenAI call: model={self.config.model_name} prompt_len={len(prompt)} timeout={self.config.timeout}s")
+        print(f"[LLM] OpenAI call: model={self.config.model_name} prompt_len={len(prompt)} timeout={effective_timeout}s")
         try:
-            async with httpx.AsyncClient(timeout=self.config.timeout) as client:
+            async with httpx.AsyncClient(timeout=effective_timeout) as client:
                 t0 = time.time()
                 resp = await client.post(url, json=payload, headers=headers)
                 elapsed = time.time() - t0

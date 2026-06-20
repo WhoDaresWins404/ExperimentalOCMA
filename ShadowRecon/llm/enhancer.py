@@ -92,7 +92,7 @@ class LLMEnhancer:
 
         try:
             response = await asyncio.wait_for(
-                provider._request(prompt),
+                provider._request(prompt, timeout=120),
                 timeout=120,
             )
             parsed = await provider._parse_json_response(response)
@@ -167,7 +167,7 @@ class LLMEnhancer:
 
         try:
             response = await asyncio.wait_for(
-                provider._request(prompt),
+                provider._request(prompt, timeout=300),
                 timeout=300,
             )
             parsed = await provider._parse_json_response(response)

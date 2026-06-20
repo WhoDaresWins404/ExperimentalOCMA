@@ -16,7 +16,8 @@ class OllamaProvider(LLMProvider):
         self.base_url = config.ollama_host.rstrip("/")
         self.model = config.model_name
 
-    async def _request(self, prompt: str, system: str = "") -> str:
+    async def _request(self, prompt: str, system: str = "", timeout: int = None) -> str:
+        effective_timeout = timeout if timeout is not None else self.config.timeout
         url = f"{self.base_url}/api/generate"
         payload = {
             "model": self.model,
@@ -26,9 +27,9 @@ class OllamaProvider(LLMProvider):
             "max_tokens": self.config.max_tokens,
             "stream": False,
         }
-        print(f"[LLM] Ollama call: model={self.model} prompt_len={len(prompt)} timeout={self.config.timeout}s")
+        print(f"[LLM] Ollama call: model={self.model} prompt_len={len(prompt)} timeout={effective_timeout}s")
         try:
-            async with httpx.AsyncClient(timeout=self.config.timeout) as client:
+            async with httpx.AsyncClient(timeout=effective_timeout) as client:
                 t0 = time.time()
                 resp = await client.post(url, json=payload)
                 elapsed = time.time() - t0
@@ -40,8 +41,8 @@ class OllamaProvider(LLMProvider):
             print(f"[LLM] Ollama FAIL: HTTP {e.response.status_code}")
             raise LLMProviderError(f"Ollama HTTP error: {e.response.status_code} - {e.response.text[:200]}")
         except httpx.TimeoutException:
-            print(f"[LLM] Ollama FAIL: timeout after {self.config.timeout}s")
-            raise LLMProviderError(f"Ollama timeout after {self.config.timeout}s")
+            print(f"[LLM] Ollama FAIL: timeout after {effective_timeout}s")
+            raise LLMProviderError(f"Ollama timeout after {effective_timeout}s")
         except Exception as e:
             print(f"[LLM] Ollama FAIL: {str(e)[:200]}")
             raise LLMProviderError(f"Ollama error: {str(e)}")
