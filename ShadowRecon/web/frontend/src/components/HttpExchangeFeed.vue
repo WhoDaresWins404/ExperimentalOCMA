@@ -1,8 +1,8 @@
 <template>
   <div class="flex flex-col gap-3">
-    <div class="flex items-center gap-2 mb-2">
+    <div class="flex flex-wrap items-center gap-2 mb-2">
       <input v-model="filterText" placeholder="Filter by URL..."
-        class="flex-1 bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-1.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
+        class="min-w-0 flex-1 bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-1.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
       <select v-model="filterStatus"
         class="bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-1.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors">
         <option value="">All Status</option>
@@ -23,14 +23,14 @@
       class="bg-cyber-surface-2 rounded-lg p-3 border-l-4 cursor-pointer"
       :class="statusBorder(ex.status_code)"
       @click="$emit('select', ex.id)">
-      <div class="flex items-center gap-2 text-xs">
-        <span class="font-mono font-bold" :class="statusColor(ex.status_code)">{{ ex.status_code }}</span>
-        <span class="font-mono text-cyber-muted-2 uppercase">{{ ex.method }}</span>
-        <span class="text-cyber-muted truncate flex-1">{{ ex.url }}</span>
-        <span class="text-cyber-muted-2 whitespace-nowrap">{{ ex.timing_ms }}ms</span>
-        <span class="text-cyber-muted-2 whitespace-nowrap">{{ formatSize(ex.response_size) }}</span>
+      <div class="flex items-center gap-2 text-xs min-w-0">
+        <span class="font-mono font-bold shrink-0" :class="statusColor(ex.status_code)">{{ ex.status_code }}</span>
+        <span class="font-mono text-cyber-muted-2 uppercase shrink-0">{{ ex.method }}</span>
+        <span class="text-cyber-muted truncate flex-1 min-w-0 break-all">{{ ex.url }}</span>
+        <span class="text-cyber-muted-2 whitespace-nowrap shrink-0">{{ ex.timing_ms }}ms</span>
+        <span class="text-cyber-muted-2 whitespace-nowrap shrink-0">{{ formatSize(ex.response_size) }}</span>
       </div>
-      <div class="text-cyber-muted-2 text-xs mt-1 truncate italic">{{ ex.body_preview }}</div>
+      <div class="text-cyber-muted-2 text-xs mt-1 truncate break-all italic">{{ ex.body_preview }}</div>
       <div class="text-cyber-muted-2 text-xs mt-1" v-if="ex.scanner">
         <span class="bg-cyber-bg px-1.5 py-0.5 rounded text-cyber-muted">{{ ex.scanner }}</span>
       </div>
