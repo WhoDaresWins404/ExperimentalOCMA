@@ -2,10 +2,14 @@ import asyncio
 import time
 import json
 import uuid
+import gc
+import shutil
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, Callable, Any
 
 from .config import ScanConfig
+from .disk_buffer import DiskBuffer
 from .models import (
     ScanTarget, ScanResult, ScanSummary, ScanStatus,
     Endpoint, Finding, Campaign, ScanSession, GraphNode, GraphEdge,
@@ -109,6 +113,9 @@ class ScanEngine:
 
     async def initialize(self):
         await self.db.initialize()
+        tmp_dir = Path("data/tmp")
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
         import os
         notif_path = os.environ.get(
             "SHADOWRECON_NOTIFICATIONS",
@@ -142,6 +149,7 @@ class ScanEngine:
         self._cancelled = False
         self._cancel_reason = "user_requested"
         self.deduplicator.reset()
+        self._waf_state.clear()
         resume_state = None
         merged = self.config.model_dump()
         if config_override:
@@ -235,10 +243,11 @@ class ScanEngine:
                             instances = {k: v for k, v in instances.items() if k not in completed}
                     scanner_instances = instances
 
-                    if scan_config.scan_mode == "waf_only":
-                        all_findings = waf_findings[:]
-                        all_endpoints = waf_endpoints[:]
-                    else:
+                    buffer = DiskBuffer(session_id)
+                    await buffer.write_findings(waf_findings)
+                    await buffer.write_endpoints(waf_endpoints)
+
+                    if scan_config.scan_mode != "waf_only":
                         host_monitor = HostMonitor(
                             target, scan_config.host_unreachable_timeout
                         )
@@ -250,18 +259,17 @@ class ScanEngine:
                         )
                         scheduler.build_from_profile(intel.profile, scan_config.scan_mode)
 
-                        all_findings = waf_findings[:]
-                        all_endpoints = waf_endpoints[:]
-
                         while True:
                             if self._cancelled:
-                                for ep in all_endpoints:
-                                    await self.db.add_endpoint(ep)
-                                for f in all_findings:
+                                # Flush buffered findings to DB before cancel
+                                for f in buffer.read_findings():
                                     await self.db.add_finding(f)
+                                for ep in buffer.read_endpoints():
+                                    await self.db.add_endpoint(ep)
                                 await self._update_scanner_state(
                                     session_id, scheduler
                                 )
+                                await buffer.cleanup()
                                 raise ScanCancelled()
                             if host_monitor.is_dead:
                                 raise HostUnreachable(target, host_monitor.unreachable_for)
@@ -274,8 +282,8 @@ class ScanEngine:
                                 await intel.absorb_finding(f, scanner_name)
                             for ep in endpoints:
                                 await intel.absorb_endpoint(ep, scanner_name)
-                            all_findings.extend(findings)
-                            all_endpoints.extend(endpoints)
+                            await buffer.write_findings(findings)
+                            await buffer.write_endpoints(endpoints)
 
                         await self._update_scanner_state(
                             session_id, scheduler
@@ -303,12 +311,11 @@ class ScanEngine:
                             instances = {k: v for k, v in instances.items() if k not in completed}
                     scanner_instances = instances
 
-                    if scan_config.scan_mode == "waf_only":
-                        for inst in scanner_instances.values():
-                            await inst.cleanup()
-                        scanner_instances.clear()
-                        scanner_results = {}
-                    else:
+                    buffer = DiskBuffer(session_id)
+                    await buffer.write_findings(waf_findings)
+                    await buffer.write_endpoints(waf_endpoints)
+
+                    if scan_config.scan_mode != "waf_only":
                         host_monitor = HostMonitor(
                             target, scan_config.host_unreachable_timeout
                         )
@@ -317,32 +324,25 @@ class ScanEngine:
                             scan_target, scanner_instances, session_id,
                             scan_config, host_monitor
                         )
+                        for finds, eps in scanner_results.values():
+                            await buffer.write_findings(finds)
+                            await buffer.write_endpoints(eps)
+                        scanner_results.clear()
                     for inst in scanner_instances.values():
                         await inst.cleanup()
                     scanner_instances.clear()
-
-                    all_eps = waf_endpoints[:]
-                    all_finds = waf_findings[:]
-                    for finds, eps in scanner_results.values():
-                        all_eps.extend(eps)
-                        all_finds.extend(finds)
-                    scanner_results.clear()
-
-                    all_endpoints = all_eps
-                    all_findings = all_finds
-
-                # Cap findings/endpoints before dedup to limit memory
-                if len(all_findings) > scan_config.max_findings:
-                    all_findings = all_findings[:scan_config.max_findings]
-                if len(all_endpoints) > scan_config.max_endpoints:
-                    all_endpoints = all_endpoints[:scan_config.max_endpoints]
 
                 # ── Phase 3: DEDUP ────────────────────────────────────────
                 await self.session_mgr.update_status(session_id, ScanStatus.DEDUP)
                 self._emit("status", {"session_id": session_id, "status": ScanStatus.DEDUP.value})
 
-                deduped_endpoints = await self.deduplicator.dedup_endpoints(all_endpoints)
-                deduped_findings = await self.deduplicator.dedup_findings(all_findings)
+                deduped_endpoints = await self.deduplicator.dedup_endpoints_stream(
+                    buffer.read_endpoints()
+                )
+                deduped_findings = await self.deduplicator.dedup_findings_stream(
+                    buffer.read_findings()
+                )
+                await buffer.cleanup()
 
                 result.endpoints = deduped_endpoints
                 for ep in deduped_endpoints:
@@ -450,6 +450,7 @@ class ScanEngine:
                 target=target,
                 session_id=session_id,
             ))
+            gc.collect()
 
         return result
 

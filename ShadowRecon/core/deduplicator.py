@@ -2,7 +2,7 @@ import hashlib
 import re
 import json
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
-from typing import Optional
+from typing import Iterable, Optional
 from Levenshtein import ratio as levenshtein_ratio
 
 from .models import Finding, Endpoint
@@ -64,6 +64,65 @@ class Deduplicator:
         return deduped
 
     async def dedup_findings(self, findings: list[Finding]) -> list[Finding]:
+        exact_seen: dict[str, Finding] = {}
+        structural_groups: dict[str, list[Finding]] = {}
+        deduped: list[Finding] = []
+
+        for f in findings:
+            fp = self.fingerprint_finding(f)
+            if fp in exact_seen:
+                survivor = exact_seen[fp]
+                survivor.duplicates.append(f.id)
+                f.duplicate_of = survivor.id
+                if isinstance(f.evidence, dict):
+                    survivor.evidence.update(f.evidence)
+                continue
+
+            struct_key = f"{f.scanner_name}:{f.severity.value}:{f.endpoint_id or ''}"
+            if struct_key not in structural_groups:
+                structural_groups[struct_key] = []
+            structural_groups[struct_key].append(f)
+
+        for group in structural_groups.values():
+            if len(group) == 1:
+                deduped.append(group[0])
+                exact_seen[self.fingerprint_finding(group[0])] = group[0]
+                continue
+
+            merged = group[0]
+            for other in group[1:]:
+                similarity = levenshtein_ratio(
+                    re.sub(r"\s+", " ", merged.title.strip().lower()),
+                    re.sub(r"\s+", " ", other.title.strip().lower()),
+                )
+                if similarity >= self.fuzzy_threshold:
+                    merged.duplicates.append(other.id)
+                    other.duplicate_of = merged.id
+                    if isinstance(other.evidence, dict):
+                        merged.evidence.update(other.evidence)
+                    if other.cvss_score and (merged.cvss_score is None or other.cvss_score > merged.cvss_score):
+                        merged.cvss_score = other.cvss_score
+                        merged.cvss_vector = other.cvss_vector
+                else:
+                    deduped.append(other)
+                    exact_seen[self.fingerprint_finding(other)] = other
+
+            deduped.append(merged)
+            exact_seen[self.fingerprint_finding(merged)] = merged
+
+        return deduped
+
+    async def dedup_endpoints_stream(self, endpoints: Iterable[Endpoint]) -> list[Endpoint]:
+        seen: dict[str, Endpoint] = {}
+        deduped: list[Endpoint] = []
+        for ep in endpoints:
+            fp = self.fingerprint_url(ep.url, ep.method)
+            if fp not in seen:
+                seen[fp] = ep
+                deduped.append(ep)
+        return deduped
+
+    async def dedup_findings_stream(self, findings: Iterable[Finding]) -> list[Finding]:
         exact_seen: dict[str, Finding] = {}
         structural_groups: dict[str, list[Finding]] = {}
         deduped: list[Finding] = []

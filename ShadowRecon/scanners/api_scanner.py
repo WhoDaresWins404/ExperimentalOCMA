@@ -197,7 +197,7 @@ class ApiScanner(BaseScanner):
             return endpoints
 
         matches = API_PATTERNS.findall(resp.text)
-        for match in matches:
+        for match in matches[:100]:
             path = match if isinstance(match, str) else match[0] or match[1] or match[2]
             if not path or path.startswith("#") or path.startswith("//"):
                 continue

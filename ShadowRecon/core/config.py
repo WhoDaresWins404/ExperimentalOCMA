@@ -91,8 +91,8 @@ class ScanConfig(BaseModel):
     max_redirects: int = 5
     depth: int = 2
     max_crawl_pages: int = 50
-    max_findings: int = 5000
-    max_endpoints: int = 10000
+    max_findings: int = 2000
+    max_endpoints: int = 5000
     max_raw_responses: int = 5000
     crawl_mode: bool = True
     xss_mode: str = "probe"

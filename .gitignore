@@ -33,3 +33,6 @@ training_data/
 
 # Logs
 *.log
+
+# Runtime temp data
+ShadowRecon/data/tmp/
