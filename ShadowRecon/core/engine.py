@@ -1,6 +1,7 @@
 import asyncio
 import time
 import json
+import uuid
 from datetime import datetime
 from typing import Optional, Callable, Any
 
@@ -64,6 +65,41 @@ class ScanEngine:
     def cancel(self, reason: str = "user_requested"):
         self._cancelled = True
         self._cancel_reason = reason
+
+    def _make_exchange_callback(self, session_id: str):
+        async def _on_exchange(
+            scanner_name: str, url: str, method: str, status_code: int,
+            request_headers: dict, request_body: str,
+            response_headers: dict, response_body: str, timing_ms: int,
+        ) -> str:
+            exchange_id = uuid.uuid4().hex[:12]
+            body_preview = (response_body or "")[:500]
+            ws_data = {
+                "id": exchange_id,
+                "url": url,
+                "method": method,
+                "status_code": status_code,
+                "response_size": len(response_body or ""),
+                "timing_ms": timing_ms,
+                "scanner": scanner_name,
+                "body_preview": body_preview,
+            }
+            self._emit("http_exchange", ws_data)
+            asyncio.create_task(self.db.add_raw_response({
+                "id": exchange_id,
+                "session_id": session_id,
+                "url": url,
+                "method": method,
+                "request_headers": json.dumps(request_headers),
+                "request_body": request_body[:5000] if request_body else None,
+                "response_headers": json.dumps(response_headers),
+                "response_body": response_body[:5000] if response_body else None,
+                "status_code": status_code,
+                "timing_ms": timing_ms,
+                "created_at": datetime.utcnow().isoformat(),
+            }))
+            return exchange_id
+        return _on_exchange
 
     async def initialize(self):
         await self.db.initialize()
@@ -180,6 +216,9 @@ class ScanEngine:
                     instances = ScannerRegistry.instantiate_all(
                         scan_config, session_id, self._waf_state, directive_bus
                     )
+                    cb = self._make_exchange_callback(session_id)
+                    for inst in instances.values():
+                        inst._on_exchange = cb
                     if scan_config.enabled_scanners:
                         instances = {k: v for k, v in instances.items() if k in scan_config.enabled_scanners}
                     if resume_state:
@@ -243,6 +282,9 @@ class ScanEngine:
                     instances = ScannerRegistry.instantiate_all(
                         scan_config, session_id, self._waf_state
                     )
+                    cb = self._make_exchange_callback(session_id)
+                    for inst in instances.values():
+                        inst._on_exchange = cb
                     if scan_config.enabled_scanners:
                         instances = {k: v for k, v in instances.items() if k in scan_config.enabled_scanners}
                     if resume_state:

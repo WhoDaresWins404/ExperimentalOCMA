@@ -592,6 +592,14 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                 )
         return {"status": "passed", "findings_above_threshold": False}
 
+    # ── Raw Response Fetch ──────────────────────────────────────────────
+    @app.get("/api/scan/{session_id}/raw-response/{response_id}")
+    async def get_raw_response(session_id: str, response_id: str):
+        rows = await engine.db.get_raw_responses(session_id, [response_id])
+        if not rows:
+            raise HTTPException(404, "Raw response not found")
+        return rows[0]
+
     return app
 
 

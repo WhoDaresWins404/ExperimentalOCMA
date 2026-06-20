@@ -3,12 +3,14 @@ import { ref, computed } from 'vue'
 import axios from 'axios'
 
 const API = '/api'
+const MAX_HTTP_EXCHANGES = 200
 
 export const useScanStore = defineStore('scan', () => {
   const campaigns = ref([])
   const currentSession = ref(null)
   const findings = ref([])
   const endpoints = ref([])
+  const httpExchanges = ref([])
   const graphData = ref({ nodes: [], edges: [] })
   const scanStatus = ref('idle')
   const cancelReason = ref('')
@@ -137,7 +139,18 @@ export const useScanStore = defineStore('scan', () => {
         scanStatus.value = 'cancelled'
         cancelReason.value = data.reason || 'user_requested'
         break
+      case 'http_exchange':
+        httpExchanges.value.push(data)
+        if (httpExchanges.value.length > MAX_HTTP_EXCHANGES) {
+          httpExchanges.value = httpExchanges.value.slice(-MAX_HTTP_EXCHANGES)
+        }
+        break
     }
+  }
+
+  async function fetchRawResponse(sessionId, responseId) {
+    const { data } = await axios.get(`${API}/scan/${sessionId}/raw-response/${responseId}`)
+    return data
   }
 
   function disconnectWebSocket() {
@@ -153,6 +166,7 @@ export const useScanStore = defineStore('scan', () => {
     currentSession.value = null
     findings.value = []
     endpoints.value = []
+    httpExchanges.value = []
     graphData.value = { nodes: [], edges: [] }
     scanStatus.value = 'idle'
     cancelReason.value = ''
@@ -160,10 +174,10 @@ export const useScanStore = defineStore('scan', () => {
   }
 
   return {
-    campaigns, currentSession, findings, endpoints, graphData,
+    campaigns, currentSession, findings, endpoints, httpExchanges, graphData,
     scanStatus, cancelReason, connected,
     fetchCampaigns, getCampaign, startScan, getScanStatus,
     getScanResults, getScanMap, analyzeFinding, analyzeScan, cancelScan,
-    connectWebSocket, disconnectWebSocket, reset,
+    fetchRawResponse, connectWebSocket, disconnectWebSocket, reset,
   }
 })

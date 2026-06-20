@@ -57,6 +57,10 @@
             <span class="text-cyber-muted">Endpoints:</span>
             <span class="text-cyber-text font-bold">{{ endpoints.length }}</span>
           </div>
+          <div class="flex justify-between items-center py-2 border-b border-cyber-surface-2">
+            <span class="text-cyber-muted">HTTP Exchanges:</span>
+            <span class="text-cyber-text font-bold">{{ httpExchanges.length }}</span>
+          </div>
           <div class="flex justify-between items-center py-2">
             <span class="text-cyber-muted">WebSocket:</span>
             <span :class="connected ? 'text-cyber-accent' : 'text-cyber-danger'" class="font-bold text-sm">{{ connected ? 'Connected' : 'Disconnected' }}</span>
@@ -69,10 +73,33 @@
       </div>
 
       <div class="bg-cyber-surface border border-cyber-border rounded-lg p-5">
-        <h3 class="text-cyber-accent font-bold mb-4">Live Findings</h3>
-        <FindingsFeed :findings="findings" />
+        <div class="flex gap-1 border-b border-cyber-border mb-4">
+          <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
+            class="px-4 py-2 text-sm cursor-pointer transition-colors border-b-2 -mb-[1px]"
+            :class="activeTab === tab.key ? 'text-cyber-accent border-cyber-accent' : 'text-cyber-muted border-transparent hover:text-cyber-text hover:border-cyber-muted-2'">
+            {{ tab.label }}
+          </button>
+        </div>
+        <div v-if="activeTab === 'findings'">
+          <FindingsFeed :findings="findings" />
+        </div>
+        <div v-else-if="activeTab === 'http'">
+          <HttpExchangeFeed :exchanges="httpExchanges" @select="selectExchange" />
+        </div>
+        <div v-else-if="activeTab === 'endpoints'">
+          <div v-if="endpoints.length === 0" class="text-cyber-muted-2 text-center py-5">No endpoints discovered yet.</div>
+          <div v-for="ep in endpoints" :key="ep.id" class="bg-cyber-surface-2 rounded-lg p-3 mb-2 border-l-4 border-cyber-border">
+            <div class="text-cyber-muted text-xs">{{ ep.source || 'discovered' }}</div>
+            <div class="text-cyber-text text-sm font-mono break-all">{{ ep.url }}</div>
+            <div v-if="ep.response_code" class="text-xs font-mono mt-1"
+              :class="ep.response_code < 300 ? 'text-cyber-accent' : ep.response_code < 400 ? 'text-cyber-medium' : 'text-cyber-warning'">
+              {{ ep.response_code }}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+    <HttpExchangeDetail v-if="selectedExchangeData" :data="selectedExchangeData" @close="selectedExchangeData = null" />
     <!-- Abort confirmation modal -->
     <div v-if="showAbortModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div class="bg-cyber-surface border border-cyber-border rounded-lg p-6 w-full max-w-md mx-4">
@@ -108,6 +135,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
 import FindingsFeed from '../components/FindingsFeed.vue'
+import HttpExchangeFeed from '../components/HttpExchangeFeed.vue'
+import HttpExchangeDetail from '../components/HttpExchangeDetail.vue'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -122,6 +151,13 @@ const abortSubmitting = ref(false)
 const resuming = ref(false)
 const abortReason = ref('user_requested')
 const abortReasonCustom = ref('')
+const activeTab = ref('findings')
+const selectedExchangeData = ref(null)
+const tabs = [
+  { key: 'findings', label: 'Findings' },
+  { key: 'http', label: 'HTTP' },
+  { key: 'endpoints', label: 'Endpoints' },
+]
 const abortReasons = [
   { value: 'user_requested', label: 'User requested' },
   { value: 'taking_too_long', label: 'Taking too long' },
@@ -134,6 +170,7 @@ let pollTimer = null
 const scanStatus = computed(() => store.scanStatus)
 const findings = computed(() => store.findings)
 const endpoints = computed(() => store.endpoints)
+const httpExchanges = computed(() => store.httpExchanges)
 const connected = computed(() => store.connected)
 const scanStarted = computed(() => store.scanStatus !== 'idle' && store.scanStatus !== 'pending')
 
@@ -174,6 +211,15 @@ onUnmounted(() => {
 function startPolling() {
   pollOnce()
   pollTimer = setInterval(pollOnce, 3000)
+}
+
+async function selectExchange(exchangeId) {
+  try {
+    const data = await store.fetchRawResponse(sessionId, exchangeId)
+    selectedExchangeData.value = data
+  } catch (e) {
+    console.error('Failed to load exchange detail:', e)
+  }
 }
 
 async function pollOnce() {

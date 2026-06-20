@@ -59,6 +59,8 @@ class BaseScanner(ABC):
         self._stats: dict = {"requests": 0, "errors": 0, "timeouts": 0}
         self._client: Optional[AsyncClient] = None
         self._augmented_paths: list[str] = []
+        self._captured_ids: list[str] = []
+        self._on_exchange: Optional[callable] = None
 
     @property
     @abstractmethod
@@ -123,8 +125,24 @@ class BaseScanner(ABC):
 
         for attempt in range(3):
             try:
+                t0 = time.monotonic()
                 resp = await client.request(method, url, **kwargs)
+                elapsed = int((time.monotonic() - t0) * 1000)
                 self._stats["requests"] += 1
+                if self._on_exchange:
+                    exchange_id = await self._on_exchange(
+                        scanner_name=self.name,
+                        url=url,
+                        method=method,
+                        status_code=resp.status_code,
+                        request_headers=dict(kwargs.get("headers", {})),
+                        request_body=kwargs.get("content", ""),
+                        response_headers=dict(resp.headers),
+                        response_body=resp.text or "",
+                        timing_ms=elapsed,
+                    )
+                    if exchange_id:
+                        self._captured_ids.append(exchange_id)
                 if resp.status_code == 429:
                     retry_after = int(resp.headers.get("Retry-After", "60"))
                     raise RateLimited(retry_after=retry_after)
