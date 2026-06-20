@@ -15,6 +15,17 @@ class OllamaProvider(LLMProvider):
         self.config = config
         self.base_url = config.ollama_host.rstrip("/")
         self.model = config.model_name
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=self.config.timeout, limits=httpx.Limits(max_keepalive_connections=5, max_connections=10))
+        return self._client
+
+    async def cleanup(self):
+        if self._client:
+            await self._client.aclose()
+            self._client = None
 
     async def _request(self, prompt: str, system: str = "", timeout: int = None) -> str:
         effective_timeout = timeout if timeout is not None else self.config.timeout
@@ -29,14 +40,14 @@ class OllamaProvider(LLMProvider):
         }
         print(f"[LLM] Ollama call: model={self.model} prompt_len={len(prompt)} timeout={effective_timeout}s")
         try:
-            async with httpx.AsyncClient(timeout=effective_timeout) as client:
-                t0 = time.time()
-                resp = await client.post(url, json=payload)
-                elapsed = time.time() - t0
-                resp.raise_for_status()
-                data = resp.json()
-                print(f"[LLM] Ollama OK: {elapsed:.1f}s response_len={len(data.get('response', ''))}")
-                return data.get("response", "")
+            client = await self._get_client()
+            t0 = time.time()
+            resp = await client.post(url, json=payload, timeout=effective_timeout)
+            elapsed = time.time() - t0
+            resp.raise_for_status()
+            data = resp.json()
+            print(f"[LLM] Ollama OK: {elapsed:.1f}s response_len={len(data.get('response', ''))}")
+            return data.get("response", "")
         except httpx.HTTPStatusError as e:
             print(f"[LLM] Ollama FAIL: HTTP {e.response.status_code}")
             raise LLMProviderError(f"Ollama HTTP error: {e.response.status_code} - {e.response.text[:200]}")
@@ -201,15 +212,15 @@ class OllamaProvider(LLMProvider):
         }
         print(f"[LLM] Ollama payload_gen: model={self.model} timeout={timeout}s")
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                t0 = time.time()
-                resp = await client.post(url, json=payload)
-                elapsed = time.time() - t0
-                resp.raise_for_status()
-                data = resp.json()
-                text = (data.get("response", "") or "").strip()
-                print(f"[LLM] Ollama payload_gen OK: {elapsed:.1f}s payload_len={len(text)}")
-                return text
+            client = await self._get_client()
+            t0 = time.time()
+            resp = await client.post(url, json=payload, timeout=timeout)
+            elapsed = time.time() - t0
+            resp.raise_for_status()
+            data = resp.json()
+            text = (data.get("response", "") or "").strip()
+            print(f"[LLM] Ollama payload_gen OK: {elapsed:.1f}s payload_len={len(text)}")
+            return text
         except Exception as e:
             print(f"[LLM] Ollama payload_gen FAIL: {str(e)[:200]}")
             return ""

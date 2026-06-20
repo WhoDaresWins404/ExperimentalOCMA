@@ -15,6 +15,17 @@ class OpenAIProvider(LLMProvider):
         self.config = config
         self.api_base = (config.api_base or "https://api.openai.com/v1").rstrip("/")
         self.api_key = config.api_key
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=self.config.timeout, limits=httpx.Limits(max_keepalive_connections=5, max_connections=10))
+        return self._client
+
+    async def cleanup(self):
+        if self._client:
+            await self._client.aclose()
+            self._client = None
 
     async def _request(self, prompt: str, system: str = "", timeout: int = None) -> str:
         effective_timeout = timeout if timeout is not None else self.config.timeout
@@ -31,15 +42,15 @@ class OpenAIProvider(LLMProvider):
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         print(f"[LLM] OpenAI call: model={self.config.model_name} prompt_len={len(prompt)} timeout={effective_timeout}s")
         try:
-            async with httpx.AsyncClient(timeout=effective_timeout) as client:
-                t0 = time.time()
-                resp = await client.post(url, json=payload, headers=headers)
-                elapsed = time.time() - t0
-                resp.raise_for_status()
-                data = resp.json()
-                content = data["choices"][0]["message"]["content"]
-                print(f"[LLM] OpenAI OK: {elapsed:.1f}s response_len={len(content)}")
-                return content
+            client = await self._get_client()
+            t0 = time.time()
+            resp = await client.post(url, json=payload, headers=headers, timeout=effective_timeout)
+            elapsed = time.time() - t0
+            resp.raise_for_status()
+            data = resp.json()
+            content = data["choices"][0]["message"]["content"]
+            print(f"[LLM] OpenAI OK: {elapsed:.1f}s response_len={len(content)}")
+            return content
         except Exception as e:
             print(f"[LLM] OpenAI FAIL: {str(e)[:200]}")
             raise LLMProviderError(f"OpenAI error: {str(e)}")
@@ -192,14 +203,14 @@ class OpenAIProvider(LLMProvider):
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         print(f"[LLM] OpenAI payload_gen: model={self.config.model_name} timeout={timeout}s")
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                t0 = time.time()
-                resp = await client.post(url, json=payload, headers=headers)
-                elapsed = time.time() - t0
-                resp.raise_for_status()
-                text = resp.json()["choices"][0]["message"]["content"].strip()
-                print(f"[LLM] OpenAI payload_gen OK: {elapsed:.1f}s payload_len={len(text)}")
-                return text
+            client = await self._get_client()
+            t0 = time.time()
+            resp = await client.post(url, json=payload, headers=headers, timeout=timeout)
+            elapsed = time.time() - t0
+            resp.raise_for_status()
+            text = resp.json()["choices"][0]["message"]["content"].strip()
+            print(f"[LLM] OpenAI payload_gen OK: {elapsed:.1f}s payload_len={len(text)}")
+            return text
         except Exception as e:
             print(f"[LLM] OpenAI payload_gen FAIL: {str(e)[:200]}")
             return ""

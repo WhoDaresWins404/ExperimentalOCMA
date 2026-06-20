@@ -87,6 +87,11 @@ class FingerprintEngine:
             )
         return self._client
 
+    async def cleanup(self):
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+
     async def fingerprint(self, target_url: str, waf_state: dict = None) -> TechFingerprint:
         """Fingerprint a target URL with a few strategic requests."""
         fp = TechFingerprint()

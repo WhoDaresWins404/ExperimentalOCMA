@@ -206,3 +206,10 @@ class ReconScanner(BaseScanner):
             return domain in hostname
         except Exception:
             return False
+
+    async def cleanup(self):
+        self._discovered.clear()
+        if self._http_client:
+            await self._http_client.aclose()
+            self._http_client = None
+        await super().cleanup()

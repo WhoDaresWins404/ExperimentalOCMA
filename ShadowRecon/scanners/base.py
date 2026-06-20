@@ -58,6 +58,7 @@ class BaseScanner(ABC):
         self._endpoints: list[Endpoint] = []
         self._stats: dict = {"requests": 0, "errors": 0, "timeouts": 0}
         self._client: Optional[AsyncClient] = None
+        self._client_lock = asyncio.Lock()
         self._augmented_paths: list[str] = []
         self._captured_ids: list[str] = []
         self._on_exchange: Optional[callable] = None
@@ -73,40 +74,43 @@ class BaseScanner(ABC):
 
     async def get_client(self) -> AsyncClient:
         if self._client is None:
-            rotator = ProxyRotator(self.config)
-            headers = {"Accept": "*/*"}
-            if self.config.evasion.user_agent_rotation:
-                headers["User-Agent"] = random.choice(self.config.evasion.user_agents)
-            auth = self.config.auth
-            if auth.enabled and auth.auth_type != "none":
-                if auth.auth_type == "cookie" and auth.cookie_string:
-                    headers["Cookie"] = auth.cookie_string
-                elif auth.auth_type == "bearer" and auth.bearer_token:
-                    headers["Authorization"] = f"Bearer {auth.bearer_token}"
-                elif auth.auth_type == "header" and auth.header_key:
-                    headers[auth.header_key] = auth.header_value
-                elif auth.auth_type == "basic" and auth.basic_username:
-                    import base64
-                    raw = f"{auth.basic_username}:{auth.basic_password}"
-                    headers["Authorization"] = f"Basic {base64.b64encode(raw.encode()).decode()}"
-            try:
-                limits = Limits(
-                    max_connections=self.config.threads,
-                    max_keepalive_connections=20,
-                    max_response_size=self.config.max_response_size,
+            async with self._client_lock:
+                if self._client is not None:
+                    return self._client
+                rotator = ProxyRotator(self.config)
+                headers = {"Accept": "*/*"}
+                if self.config.evasion.user_agent_rotation:
+                    headers["User-Agent"] = random.choice(self.config.evasion.user_agents)
+                auth = self.config.auth
+                if auth.enabled and auth.auth_type != "none":
+                    if auth.auth_type == "cookie" and auth.cookie_string:
+                        headers["Cookie"] = auth.cookie_string
+                    elif auth.auth_type == "bearer" and auth.bearer_token:
+                        headers["Authorization"] = f"Bearer {auth.bearer_token}"
+                    elif auth.auth_type == "header" and auth.header_key:
+                        headers[auth.header_key] = auth.header_value
+                    elif auth.auth_type == "basic" and auth.basic_username:
+                        import base64
+                        raw = f"{auth.basic_username}:{auth.basic_password}"
+                        headers["Authorization"] = f"Basic {base64.b64encode(raw.encode()).decode()}"
+                try:
+                    limits = Limits(
+                        max_connections=self.config.threads,
+                        max_keepalive_connections=20,
+                        max_response_size=self.config.max_response_size,
+                    )
+                except TypeError:
+                    limits = Limits(
+                        max_connections=self.config.threads,
+                        max_keepalive_connections=20,
+                    )
+                self._client = AsyncClient(
+                    mounts=rotator.mounts(),
+                    headers=headers,
+                    timeout=Timeout(self.config.timeout),
+                    limits=limits,
+                    follow_redirects=self.config.follow_redirects,
                 )
-            except TypeError:
-                limits = Limits(
-                    max_connections=self.config.threads,
-                    max_keepalive_connections=20,
-                )
-            self._client = AsyncClient(
-                mounts=rotator.mounts(),
-                headers=headers,
-                timeout=Timeout(self.config.timeout),
-                limits=limits,
-                follow_redirects=self.config.follow_redirects,
-            )
         return self._client
 
     async def request(self, method: str, url: str, **kwargs) -> httpx.Response:
@@ -222,6 +226,8 @@ class BaseScanner(ABC):
     async def cleanup(self):
         self._results.clear()
         self._endpoints.clear()
+        self._captured_ids.clear()
+        self._augmented_paths.clear()
         if self._client:
             await self._client.aclose()
             self._client = None

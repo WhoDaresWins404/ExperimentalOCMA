@@ -368,18 +368,20 @@ class Database:
             )
             s.add(row)
 
-    async def get_session_endpoints(self, session_id: str) -> list[dict]:
+    async def get_session_endpoints(self, session_id: str, limit: int = None, offset: int = 0) -> list[dict]:
         async with self.session() as s:
-            rows = (await s.execute(
-                select(EndpointRow).where(EndpointRow.session_id == session_id)
-            )).scalars().all()
+            q = select(EndpointRow).where(EndpointRow.session_id == session_id).offset(offset)
+            if limit is not None:
+                q = q.limit(limit)
+            rows = (await s.execute(q)).scalars().all()
             return [await self._row_to_dict(r) for r in rows]
 
-    async def get_session_findings(self, session_id: str) -> list[dict]:
+    async def get_session_findings(self, session_id: str, limit: int = None, offset: int = 0) -> list[dict]:
         async with self.session() as s:
-            rows = (await s.execute(
-                select(FindingRow).where(FindingRow.session_id == session_id)
-            )).scalars().all()
+            q = select(FindingRow).where(FindingRow.session_id == session_id).offset(offset)
+            if limit is not None:
+                q = q.limit(limit)
+            rows = (await s.execute(q)).scalars().all()
             return [await self._row_to_dict(r) for r in rows]
 
     async def get_session_graph(self, session_id: str) -> tuple[list[dict], list[dict]]:
@@ -410,6 +412,20 @@ class Database:
         async with self.session() as s:
             row = RawResponseRow(**data)
             s.add(row)
+
+    async def trim_raw_responses(self, session_id: str, max_count: int = 5000):
+        async with self.session() as s:
+            count = (await s.execute(
+                select(func.count(RawResponseRow.id)).where(RawResponseRow.session_id == session_id)
+            )).scalar()
+            if count is not None and count > max_count:
+                to_delete = count - max_count
+                subq = select(RawResponseRow.id).where(
+                    RawResponseRow.session_id == session_id
+                ).order_by(RawResponseRow.created_at).limit(to_delete)
+                await s.execute(
+                    delete(RawResponseRow).where(RawResponseRow.id.in_(subq))
+                )
 
     async def get_raw_responses(self, session_id: str, ids: list[str]) -> list[dict]:
         async with self.session() as s:

@@ -273,6 +273,8 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                             await ws.send_text(json.dumps({"event": "error", "data": {"error": str(e)}}))
                         except Exception:
                             pass
+            finally:
+                engine.remove_progress(progress_callback)
 
         background_tasks.add_task(wrapped_scan)
         return {"status": "started", "campaign_id": campaign.id, "session_id": session.id}
@@ -448,11 +450,16 @@ def create_app(config: ScanConfig = None) -> FastAPI:
         path = training_exporter.export_jsonl(all_pairs, campaign_id)
         return FileResponse(path, filename=f"training_data_{campaign_id}.jsonl")
 
+    MAX_WS_PER_SESSION = 10
+
     @app.websocket("/ws/scan/{session_id}")
     async def scan_websocket(websocket: WebSocket, session_id: str):
         await websocket.accept()
         if session_id not in websocket_clients:
             websocket_clients[session_id] = []
+        if len(websocket_clients[session_id]) >= MAX_WS_PER_SESSION:
+            await websocket.close(code=1013, reason="Too many connections for this session")
+            return
         websocket_clients[session_id].append(websocket)
         try:
             while True:

@@ -36,6 +36,11 @@ class LLMEnhancer:
             raise LLMUnavailable(f"LLM provider '{self.config.provider}' unreachable at {self.config.ollama_host}")
         return self._provider
 
+    async def cleanup(self):
+        if self._provider:
+            await self._provider.cleanup()
+            self._provider = None
+
     async def enrich_findings(self, findings: list[Finding], session_id: str) -> list[Finding]:
         if not self.config.enabled or not self.config.enrich_findings:
             return findings

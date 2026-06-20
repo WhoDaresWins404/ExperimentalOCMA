@@ -52,6 +52,12 @@ class ScanEngine:
     def on_progress(self, callback: ProgressCallback):
         self._progress_callbacks.append(callback)
 
+    def remove_progress(self, callback: ProgressCallback):
+        try:
+            self._progress_callbacks.remove(callback)
+        except ValueError:
+            pass
+
     def _emit(self, event: str, data: Any):
         for cb in self._progress_callbacks:
             try:
@@ -135,6 +141,7 @@ class ScanEngine:
     ) -> ScanResult:
         self._cancelled = False
         self._cancel_reason = "user_requested"
+        self.deduplicator.reset()
         resume_state = None
         merged = self.config.model_dump()
         if config_override:
@@ -187,6 +194,7 @@ class ScanEngine:
 
                     fingerprinter = FingerprintEngine(scan_config)
                     tech_fp = await fingerprinter.fingerprint(target, self._waf_state)
+                    await fingerprinter.cleanup()
 
                     # ── Phase 1b: STRATEGIZE ──────────────────────────────
                     await self.session_mgr.update_status(session_id, ScanStatus.STRATEGIZE)
@@ -272,6 +280,8 @@ class ScanEngine:
                         await self._update_scanner_state(
                             session_id, scheduler
                         )
+                    for inst in scanner_instances.values():
+                        await inst.cleanup()
                     scanner_instances.clear()
 
                 else:
@@ -294,6 +304,8 @@ class ScanEngine:
                     scanner_instances = instances
 
                     if scan_config.scan_mode == "waf_only":
+                        for inst in scanner_instances.values():
+                            await inst.cleanup()
                         scanner_instances.clear()
                         scanner_results = {}
                     else:
@@ -305,6 +317,8 @@ class ScanEngine:
                             scan_target, scanner_instances, session_id,
                             scan_config, host_monitor
                         )
+                    for inst in scanner_instances.values():
+                        await inst.cleanup()
                     scanner_instances.clear()
 
                     all_eps = waf_endpoints[:]
@@ -316,6 +330,12 @@ class ScanEngine:
 
                     all_endpoints = all_eps
                     all_findings = all_finds
+
+                # Cap findings/endpoints before dedup to limit memory
+                if len(all_findings) > scan_config.max_findings:
+                    all_findings = all_findings[:scan_config.max_findings]
+                if len(all_endpoints) > scan_config.max_endpoints:
+                    all_endpoints = all_endpoints[:scan_config.max_endpoints]
 
                 # ── Phase 3: DEDUP ────────────────────────────────────────
                 await self.session_mgr.update_status(session_id, ScanStatus.DEDUP)
@@ -411,6 +431,10 @@ class ScanEngine:
 
         finally:
             await self._callback_server.stop()
+            self._callback_server.drain()
+            asyncio.create_task(self.db.trim_raw_responses(
+                session_id, self.config.max_raw_responses
+            ))
             severity = "info"
             if result.status == ScanStatus.FAILED:
                 severity = "high"
