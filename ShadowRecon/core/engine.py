@@ -17,7 +17,7 @@ from .deduplicator import Deduplicator
 from .directive import DirectiveBus
 from .budget import TimeBudgetManager
 from .intelligence import IntelligenceCore
-from .scheduler import PriorityScheduler
+from .scheduler import PriorityScheduler, ScanScheduler
 from .fingerprint import FingerprintEngine
 from scanners.registry import ScannerRegistry
 from scanners.base import BaseScanner
@@ -27,7 +27,6 @@ from core.callback_server import SSRFCallbackServer
 from core.notifications import NotificationManager, NotificationEvent
 from core.scope import load_scope_from_dict, ScopeConfig
 from core.response_diff import ResponseDiffEngine
-from core.scheduler import ScanScheduler
 
 
 ProgressCallback = Callable[[str, Any], None]
