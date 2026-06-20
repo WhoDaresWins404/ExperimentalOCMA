@@ -27,19 +27,19 @@
         </div>
         <div>
           <h4 class="text-cyber-accent text-sm font-bold mb-2">Request Headers</h4>
-          <pre class="bg-cyber-bg border border-cyber-border rounded p-3 text-xs font-mono text-cyber-text max-h-48 overflow-y-auto whitespace-pre-wrap">{{ formatHeaders(data.request_headers) }}</pre>
+          <pre class="bg-cyber-bg border border-cyber-border rounded p-3 text-xs font-mono text-cyber-text max-h-48 overflow-y-auto whitespace-pre-wrap break-all">{{ formatHeaders(data.request_headers) }}</pre>
         </div>
         <div v-if="data.request_body">
           <h4 class="text-cyber-accent text-sm font-bold mb-2">Request Body</h4>
-          <pre class="bg-cyber-bg border border-cyber-border rounded p-3 text-xs font-mono text-cyber-text max-h-48 overflow-y-auto whitespace-pre-wrap">{{ data.request_body }}</pre>
+          <pre class="bg-cyber-bg border border-cyber-border rounded p-3 text-xs font-mono text-cyber-text max-h-48 overflow-y-auto whitespace-pre-wrap break-all">{{ data.request_body }}</pre>
         </div>
         <div>
           <h4 class="text-cyber-accent text-sm font-bold mb-2">Response Headers</h4>
-          <pre class="bg-cyber-bg border border-cyber-border rounded p-3 text-xs font-mono text-cyber-text max-h-48 overflow-y-auto whitespace-pre-wrap">{{ formatHeaders(data.response_headers) }}</pre>
+          <pre class="bg-cyber-bg border border-cyber-border rounded p-3 text-xs font-mono text-cyber-text max-h-48 overflow-y-auto whitespace-pre-wrap break-all">{{ formatHeaders(data.response_headers) }}</pre>
         </div>
         <div v-if="data.response_body">
           <h4 class="text-cyber-accent text-sm font-bold mb-2">Response Body</h4>
-          <pre class="bg-cyber-bg border border-cyber-border rounded p-3 text-xs font-mono text-cyber-text max-h-64 overflow-y-auto whitespace-pre-wrap">{{ data.response_body }}</pre>
+          <pre class="bg-cyber-bg border border-cyber-border rounded p-3 text-xs font-mono text-cyber-text max-h-64 overflow-y-auto whitespace-pre-wrap break-all">{{ data.response_body }}</pre>
         </div>
       </div>
     </div>
