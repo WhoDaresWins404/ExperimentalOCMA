@@ -30,23 +30,23 @@
       <div v-if="llmResults[f.id]" class="mt-2.5 bg-cyber-bg border border-cyber-llm rounded-lg p-3 flex flex-col gap-2.5">
         <div v-if="llmResults[f.id].technical_impact">
           <div class="text-cyber-llm-light text-xs uppercase tracking-wider font-bold mb-1">Technical Impact</div>
-          <div class="text-cyber-text text-xs leading-relaxed whitespace-pre-wrap">{{ llmResults[f.id].technical_impact }}</div>
+          <LlmValueRenderer :value="llmResults[f.id].technical_impact" />
         </div>
         <div v-if="llmResults[f.id].exploitation_path">
           <div class="text-cyber-llm-light text-xs uppercase tracking-wider font-bold mb-1">Exploitation Path</div>
-          <div class="text-cyber-text text-xs leading-relaxed whitespace-pre-wrap">{{ llmResults[f.id].exploitation_path }}</div>
+          <LlmValueRenderer :value="llmResults[f.id].exploitation_path" />
         </div>
         <div v-if="llmResults[f.id].remediation">
           <div class="text-cyber-llm-light text-xs uppercase tracking-wider font-bold mb-1">Remediation</div>
-          <div class="text-cyber-text text-xs leading-relaxed whitespace-pre-wrap">{{ llmResults[f.id].remediation }}</div>
+          <LlmValueRenderer :value="llmResults[f.id].remediation" />
         </div>
         <div v-if="llmResults[f.id].chaining_potential">
           <div class="text-cyber-llm-light text-xs uppercase tracking-wider font-bold mb-1">Chaining Potential</div>
-          <div class="text-cyber-text text-xs leading-relaxed whitespace-pre-wrap">{{ llmResults[f.id].chaining_potential }}</div>
+          <LlmValueRenderer :value="llmResults[f.id].chaining_potential" />
         </div>
         <div v-if="llmResults[f.id].analyst_confidence">
           <div class="text-cyber-llm-light text-xs uppercase tracking-wider font-bold mb-1">Analyst Confidence</div>
-          <div class="text-cyber-text text-xs leading-relaxed whitespace-pre-wrap">{{ llmResults[f.id].analyst_confidence }}</div>
+          <LlmValueRenderer :value="llmResults[f.id].analyst_confidence" />
         </div>
         <div v-if="llmResults[f.id].error" class="text-cyber-danger text-xs">{{ llmResults[f.id].error }}</div>
         <div v-if="hasLlmResult(f.id) && !anyLlmField(f.id)" class="text-cyber-muted text-xs italic">Analysis received, but fields could not be parsed.</div>
@@ -60,6 +60,7 @@ import { ref, computed, reactive, nextTick } from 'vue'
 import { useScanStore } from '../store/scanStore'
 import RiskBadge from './RiskBadge.vue'
 import EvidenceViewer from './EvidenceViewer.vue'
+import LlmValueRenderer from './LlmValueRenderer.vue'
 
 const props = defineProps({ findings: { type: Array, default: () => [] } })
 const store = useScanStore()

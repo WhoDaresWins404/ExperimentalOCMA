@@ -1,0 +1,103 @@
+# Technology fingerprints for automatic stack detection
+# Format: fingerprint_name -> {headers, cookies, urls, body_patterns, version_patterns}
+
+servers:
+  nginx:
+    headers: ["server: nginx"]
+    version_pattern: "nginx/([\\d.]+)"
+  apache:
+    headers: ["server: apache", "server: apache/"]
+    version_pattern: "Apache/([\\d.]+)"
+  cloudflare:
+    headers: ["server: cloudflare", "cf-ray:"]
+  aws:
+    headers: ["server: awselb/", "x-amz-", "x-amzn-"]
+  gunicorn:
+    headers: ["server: gunicorn"]
+
+frameworks:
+  wordpress:
+    cookies: ["wordpress_", "wp-settings-", "wordpress_logged_in_"]
+    urls: ["/wp-admin/", "/wp-content/", "/wp-includes/", "/wp-json/", "/xmlrpc.php"]
+    body_patterns: ["/wp-content/", "wp-json", "wordpress"]
+    version_pattern: "ver=([\\d.]+)"
+  laravel:
+    cookies: ["laravel_session", "XSRF-TOKEN"]
+    headers: ["x-powered-by: laravel", "x-frame-options: SAMEORIGIN"]
+    urls: ["/.env", "/artisan", "/storage/"]
+    body_patterns: ["laravel", "Laravel"]
+  django:
+    cookies: ["csrftoken", "sessionid"]
+    headers: ["server: wsgi", "x-frame-options: DENY"]
+    urls: ["/admin/", "/admin/login/"]
+    body_patterns: ["csrfmiddlewaretoken", "django"]
+  express:
+    headers: ["x-powered-by: express"]
+    cookies: ["connect.sid"]
+    body_patterns: ["express", "powered by Express"]
+  rails:
+    cookies: ["_session", "_rails"]
+    headers: ["x-powered-by: phusion", "server: phusion"]
+    urls: ["/rails/info/", "/assets/rails-"]
+    body_patterns: ["csrf-param", "rails"]
+  spring_boot:
+    urls: ["/actuator", "/actuator/health", "/actuator/info", "/heapdump", "/env"]
+    headers: ["x-application-context:"]
+    body_patterns: ["spring", "Spring", "actuator"]
+  flask:
+    cookies: ["session"]
+    body_patterns: ["flask", "Flask"]
+  nextjs:
+    headers: ["x-nextjs-", "x-middleware-"]
+    urls: ["/_next/static/"]
+    body_patterns: ["__NEXT_DATA__", "next"]
+  nuxt:
+    urls: ["/_nuxt/"]
+    body_patterns: ["__NUXT__"]
+
+cms:
+  drupal:
+    urls: ["/sites/default/", "/core/", "/modules/", "/themes/"]
+    cookies: ["Drupal.", "SESS"]
+    body_patterns: ["drupal", "Drupal"]
+  joomla:
+    urls: ["/components/", "/modules/", "/plugins/", "/administrator/"]
+    body_patterns: ["joomla", "Joomla"]
+  magento:
+    cookies: ["mage-", "admin"]
+    urls: ["/skin/", "/media/", "/static/version"]
+    body_patterns: ["Magento", "magento"]
+
+javascript:
+  react:
+    body_patterns: ["react", "React", "__NEXT_DATA__", "react-dom"]
+    urls: ["/static/js/main.", "/service-worker.js"]
+  vue:
+    body_patterns: ["vue", "Vue", "vue-router", "vuex"]
+    urls: ["/js/app.", "/js/chunk-vendors."]
+  angular:
+    body_patterns: ["angular", "ng-version", "ng-app"]
+    urls: ["/main.js", "/polyfills.js", "/runtime.js"]
+
+cloud:
+  aws_cloudfront:
+    headers: ["x-amz-cf-", "x-amz-cf-id"]
+  aws_s3:
+    headers: ["x-amz-id-2", "x-amz-request-id"]
+    body_patterns: ["ListBucketResult", "S3 Bucket"]
+  google_cloud:
+    headers: ["x-guploader-uploadid", "x-goog-"]
+  azure:
+    headers: ["x-ms-request-id", "x-ms-version"]
+
+analytics:
+  google_analytics:
+    body_patterns: ["gtag(", "ga(", "google-analytics", "G-"]
+  hotjar:
+    body_patterns: ["hotjar", "hj(", "hjs"]
+
+cdn:
+  cloudflare: { headers: ["cf-ray:", "cf-cache-status:"] }
+  akamai: { headers: ["x-akamai-", "x-akamai-transformed:"] }
+  fastly: { headers: ["x-fastly-", "x-served-by:"] }
+  cloudfront: { headers: ["x-amz-cf-"] }

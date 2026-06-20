@@ -1,0 +1,41 @@
+name: ShadowRecon Security Scan
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 6 AM UTC
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target URL'
+        required: true
+        default: 'https://example.com'
+      threshold:
+        description: 'Fail threshold (critical/high/medium/low)'
+        default: 'high'
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ShadowRecon
+        run: |
+          pip install -e .
+          playwright install chromium
+
+      - name: Run Scan
+        run: |
+          shadowrecon --web --url "${{ github.event.inputs.target || 'https://example.com' }}" \
+                      --campaign "CI Scan $(date +%Y-%m-%d)"
+
+      - name: Check CI Status
+        id: ci_check
+        run: |
+          SESSION_ID=$(curl -s http://localhost:8000/api/campaigns | \
+            python -c "import sys,json; d=json.load(sys.stdin); print(d[0]['sessions'][-1]['id'] if d else '')")
+          curl -s "http://localhost:8000/api/scan/$SESSION_ID/ci-status?threshold=${{ github.event.inputs.threshold || 'high' }}"

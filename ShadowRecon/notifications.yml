@@ -1,0 +1,57 @@
+# ShadowRecon Notification Configuration
+# Providers will be activated when their fields are filled in.
+# Copy this file and set the values for your preferred providers.
+
+providers:
+  - type: discord
+    enabled: false
+    webhook_url: ""
+    min_severity: high
+    rate_limit_seconds: 60
+    events:
+      - finding.critical
+      - finding.high
+      - scan.complete
+      - scan.failed
+
+  - type: slack
+    enabled: false
+    webhook_url: ""
+    min_severity: high
+    rate_limit_seconds: 60
+    events:
+      - finding.critical
+      - scan.failed
+
+  - type: telegram
+    enabled: false
+    bot_token: ""
+    chat_id: ""
+    min_severity: high
+    rate_limit_seconds: 120
+    events:
+      - finding.critical
+      - finding.high
+
+  - type: smtp
+    enabled: false
+    smtp_host: ""
+    smtp_port: 587
+    smtp_user: ""
+    smtp_pass: ""
+    from_addr: ""
+    to_addrs: []
+    min_severity: high
+    events:
+      - scan.complete
+      - scan.failed
+
+  - type: webhook
+    enabled: false
+    webhook_url: ""
+    bot_token: ""  # used as HMAC signing secret
+    min_severity: medium
+    events:
+      - finding.critical
+      - finding.high
+      - finding.medium

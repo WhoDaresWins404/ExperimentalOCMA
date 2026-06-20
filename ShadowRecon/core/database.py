@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import String, Text, Integer, Float, Boolean, DateTime, JSON, ForeignKey, select, delete, func
+from sqlalchemy import String, Text, Integer, Float, Boolean, DateTime, JSON, ForeignKey, select, delete, func, event
 from sqlalchemy import UniqueConstraint, Index
 
 from .config import ScanConfig
@@ -178,6 +178,13 @@ class Database:
             echo=config.database.echo,
             pool_size=config.database.pool_size,
         )
+        # Enable WAL mode + busy timeout for concurrent read/write access
+        @event.listens_for(self.engine.sync_engine, "connect")
+        def _set_sqlite_pragmas(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=30000")
+            cursor.close()
         self.session_factory = async_sessionmaker(
             self.engine, class_=AsyncSession, expire_on_commit=False
         )

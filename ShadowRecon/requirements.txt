@@ -18,6 +18,9 @@ python-multipart>=0.0.6
 # Reporting
 jinja2>=3.1.0
 
+# Headless browser (auto-installs Chromium via post-install)
+playwright>=1.40.0
+
 # Optional: PDF reports
 # weasyprint>=60.0
 

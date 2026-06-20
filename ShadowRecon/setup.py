@@ -1,4 +1,32 @@
+import sys
+import subprocess
 from setuptools import setup, find_packages
+from setuptools.command.develop import develop
+from setuptools.command.install import install
+
+
+class PostInstallCommand(install):
+    def run(self):
+        install.run(self)
+        self._install_playwright()
+
+    @staticmethod
+    def _install_playwright():
+        try:
+            import playwright  # noqa: F401
+            subprocess.check_call(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            pass
+
+
+class PostDevelopCommand(develop):
+    def run(self):
+        develop.run(self)
+        PostInstallCommand._install_playwright()
 
 setup(
     name="shadowrecon",
@@ -24,12 +52,18 @@ setup(
         "python-multipart>=0.0.6",
         # Reporting
         "jinja2>=3.1.0",
+        # Headless browser
+        "playwright>=1.40.0",
         # LLM
         "httpx>=0.26.0",
     ],
     extras_require={
         "pdf": ["weasyprint>=60.0"],
         "dev": ["pytest", "pytest-asyncio", "black", "ruff"],
+    },
+    cmdclass={
+        "install": PostInstallCommand,
+        "develop": PostDevelopCommand,
     },
     entry_points={
         "console_scripts": [

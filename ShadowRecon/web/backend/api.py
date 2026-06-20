@@ -43,6 +43,7 @@ class ScanRequest(BaseModel):
     enable_llm_payloads: bool = False
     enabled_scanners: list[str] = []
     continue_from: str | None = None
+    scope: dict = {}
 
 
 class CampaignCreate(BaseModel):
@@ -191,6 +192,7 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                 "basic_password": req.auth_basic_password,
             },
             "enabled_scanners": req.enabled_scanners,
+            "scope": req.scope,
         }
 
         resume_extra = None
@@ -479,6 +481,116 @@ def create_app(config: ScanConfig = None) -> FastAPI:
     async def delete_scan(session_id: str):
         await engine.db.delete_session(session_id)
         return {"status": "deleted", "session_id": session_id}
+
+    # ── Knowledge Base ────────────────────────────────────────────────
+    from core.knowledge_base import KnowledgeBase
+    kb = KnowledgeBase(engine.db)
+
+    @app.get("/api/kb/findings")
+    async def kb_search(query: str = "", scanner: str = "", severity: str = "",
+                        tag: str = "", status: str = "", limit: int = 100, offset: int = 0):
+        return await kb.search_findings(query, scanner, severity, tag, status, limit, offset)
+
+    @app.post("/api/kb/findings/{finding_id}/comments")
+    async def kb_add_comment(finding_id: str, body: dict):
+        await kb.add_comment(finding_id, body.get("author", "user"), body.get("text", ""))
+        return {"status": "ok"}
+
+    @app.get("/api/kb/findings/{finding_id}/comments")
+    async def kb_get_comments(finding_id: str):
+        return await kb.get_comments(finding_id)
+
+    # ── Finding Triage ────────────────────────────────────────────────
+    from core.finding_triage import FindingTriage
+    triage = FindingTriage(engine.db)
+
+    @app.post("/api/findings/{finding_id}/status")
+    async def set_finding_status(finding_id: str, body: dict):
+        await triage.set_status(finding_id, body.get("status", "new"), body.get("note", ""))
+        return {"status": "ok"}
+
+    @app.post("/api/findings/{finding_id}/notes")
+    async def add_finding_note(finding_id: str, body: dict):
+        await triage.add_note(finding_id, "user", body.get("text", ""))
+        return {"status": "ok"}
+
+    # ── Scheduled Scans ──────────────────────────────────────────────
+    from core.scheduler import ScanScheduler
+    scheduler = ScanScheduler(engine) if not hasattr(engine, "_scheduler") else engine._scheduler
+
+    @app.post("/api/schedules")
+    async def create_schedule(body: dict):
+        from sqlalchemy import select
+        from core.database import Base
+        import uuid
+        from sqlalchemy import Column, String, Text, Boolean
+
+        if not hasattr(engine.db, "_schedule_table_created"):
+            class ScanScheduleRow(Base):
+                __tablename__ = "scan_schedules"
+                id = Column(String(32), primary_key=True)
+                target = Column(String(512), nullable=False)
+                campaign_id = Column(String(32), nullable=False)
+                cron = Column(String(64), nullable=False)
+                config_snapshot = Column(Text, default="{}")
+                enabled = Column(Boolean, default=True)
+                last_run = Column(String(32), default="")
+            engine.db._schedule_table_created = True
+            async with engine.db.engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+
+        row = ScanScheduleRow(
+            id=uuid.uuid4().hex[:12],
+            target=body["target"],
+            campaign_id=body.get("campaign_id", ""),
+            cron=body.get("cron", "0 0 * * *"),
+            config_snapshot=json.dumps(body.get("config", {})),
+            enabled=body.get("enabled", True),
+        )
+        async with engine.db.session() as s:
+            s.add(row)
+        return {"id": row.id, "status": "created"}
+
+    @app.get("/api/schedules")
+    async def list_schedules():
+        return await scheduler._get_schedules()
+
+    @app.delete("/api/schedules/{schedule_id}")
+    async def delete_schedule(schedule_id: str):
+        from sqlalchemy import delete as sa_delete
+        async with engine.db.session() as s:
+            await s.execute(sa_delete(type("R", (), {"__tablename__": "scan_schedules"})).where(
+                type("R", (), {"id": schedule_id}).id == schedule_id
+            ))
+        return {"status": "deleted"}
+
+    # ── Webhook Receiver ──────────────────────────────────────────────
+    from core.webhook_receiver import WebhookReceiver
+    wh_secret = os.environ.get("SHADOWRECON_WEBHOOK_SECRET", "")
+    webhook = WebhookReceiver(engine, wh_secret)
+
+    @app.post("/api/webhook/scan")
+    async def webhook_scan(payload: dict):
+        signature = payload.pop("_signature", None) or ""
+        return await webhook.handle(payload, signature)
+
+    # ── CI Status ──────────────────────────────────────────────────────
+    @app.get("/api/scan/{session_id}/ci-status")
+    async def ci_status(session_id: str, threshold: str = "high"):
+        session = await engine.session_mgr.get(session_id)
+        if not session:
+            raise HTTPException(404, "Session not found")
+        findings = await engine.db.get_session_findings(session_id)
+        sev_rank = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0, "none": 0}
+        min_rank = sev_rank.get(threshold, 3)
+        for f in findings:
+            sev = f.get("severity", "") if isinstance(f, dict) else getattr(f, "severity", "")
+            if sev_rank.get(sev, 0) >= min_rank:
+                return JSONResponse(
+                    content={"status": "failed", "findings_above_threshold": True},
+                    status_code=400,
+                )
+        return {"status": "passed", "findings_above_threshold": False}
 
     return app
 

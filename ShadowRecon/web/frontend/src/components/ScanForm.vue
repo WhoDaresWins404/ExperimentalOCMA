@@ -279,6 +279,12 @@
               <span class="text-cyber-text text-sm">Enable LLM Payload Generation (opt-in, 120s timeout)</span>
             </label>
           </div>
+
+          <div class="text-cyber-muted-2 text-xs uppercase tracking-wider">Scope</div>
+          <textarea v-model="form.scope_text" rows="3" placeholder="*.example.com&#10;*.example.org&#10;-*.dev.example.com (exclusion prefix with -)"
+            class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors font-mono"
+            title="One pattern per line. Lines starting with - are out-of-scope exclusions."></textarea>
+          <p class="text-cyber-muted-2 text-[10px] mt-0.5">One pattern per line. Prefix with - for exclusion. Uses fnmatch wildcards (*).</p>
         </div>
       </details>
     </template>
@@ -355,6 +361,8 @@ const form = reactive({
   xss_mode: 'probe',
   enable_llm_payloads: false,
   enabled_scanners: [],
+  scope: {},
+  scope_text: '',
 })
 
 watch(scanProfile, (profile) => {
@@ -412,10 +420,27 @@ function deselectAllScanners() {
   form.enabled_scanners = []
 }
 
+function parseScope() {
+  const lines = (form.scope_text || '').split('\n').map(l => l.trim()).filter(Boolean)
+  const in_scope = []
+  const out_of_scope = []
+  for (const line of lines) {
+    if (line.startsWith('-')) {
+      out_of_scope.push(line.slice(1).trim())
+    } else {
+      in_scope.push(line)
+    }
+  }
+  return { in_scope, out_of_scope }
+}
+
 async function handleSubmit() {
   submitting.value = true
   try {
-    emit('start', { ...form })
+    const payload = { ...form }
+    payload.scope = parseScope()
+    delete payload.scope_text
+    emit('start', payload)
   } finally {
     submitting.value = false
   }

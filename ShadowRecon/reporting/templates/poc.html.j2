@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><title>{{ title }}</title></head>
+<body>
+  <h1>{{ title }}</h1>
+  <p>This is a proof-of-concept demonstrating the vulnerability.</p>
+  <form action="{{ url }}" method="{{ method }}">
+{{ hidden_fields }}
+    <input type="submit" value="Submit PoC">
+  </form>
+  {% if body %}
+  <hr>
+  <h3>Request Body</h3>
+  <pre>{{ body }}</pre>
+  {% endif %}
+</body>
+</html>

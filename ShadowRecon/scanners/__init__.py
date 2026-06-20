@@ -21,3 +21,13 @@ from .js_analyzer import JsAnalyzer
 from .ssrf_scanner import SSRFScanner
 from .reflection_mapper import ReflectionMapper
 from .reflection_injector import ReflectionInjector
+from .tech_scanner import TechScanner
+from .lfi_scanner import LfiScanner
+from .jwt_scanner import JwtScanner
+from .csrf_scanner import CsrfScanner
+from .tls_scanner import TlsScanner
+from .recon_scanner import ReconScanner
+from .xxe_scanner import XxeScanner
+from .idor_scanner import IdorScanner
+from .deser_scanner import DeserScanner
+from .upload_scanner import UploadScanner

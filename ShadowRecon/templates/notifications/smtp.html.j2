@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: sans-serif; padding: 20px;">
+  <h2 style="color: #333;">{{ event.title }}</h2>
+  <table>
+    <tr><td><strong>Severity:</strong></td><td>{{ event.severity or 'N/A' }}</td></tr>
+    <tr><td><strong>Target:</strong></td><td>{{ event.target or 'N/A' }}</td></tr>
+    <tr><td><strong>Scanner:</strong></td><td>{{ event.scanner or 'N/A' }}</td></tr>
+  </table>
+  <p>{{ event.description }}</p>
+  <hr>
+  <p style="color: #888; font-size: 12px;">ShadowRecon Notification — {{ event.event_type }}</p>
+</body>
+</html>

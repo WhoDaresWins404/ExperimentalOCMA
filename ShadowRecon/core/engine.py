@@ -23,6 +23,11 @@ from scanners.registry import ScannerRegistry
 from scanners.base import BaseScanner
 from core.exceptions import ShadowReconError, WAFDetected, ScanCancelled, HostUnreachable
 from core.host_monitor import HostMonitor
+from core.callback_server import SSRFCallbackServer
+from core.notifications import NotificationManager, NotificationEvent
+from core.scope import load_scope_from_dict, ScopeConfig
+from core.response_diff import ResponseDiffEngine
+from core.scheduler import ScanScheduler
 
 
 ProgressCallback = Callable[[str, Any], None]
@@ -39,6 +44,10 @@ class ScanEngine:
         self._cancelled = False
         self._cancel_reason: str = "user_requested"
         self._waf_state: dict = {}
+        self._callback_server = SSRFCallbackServer()
+        self._notifier = NotificationManager()
+        self._response_diff = ResponseDiffEngine()
+        self._scheduler = ScanScheduler(self)
 
     def on_progress(self, callback: ProgressCallback):
         self._progress_callbacks.append(callback)
@@ -59,8 +68,18 @@ class ScanEngine:
 
     async def initialize(self):
         await self.db.initialize()
+        import os
+        notif_path = os.environ.get(
+            "SHADOWRECON_NOTIFICATIONS",
+            os.path.join(os.path.dirname(self.config.data_dir) if self.config.data_dir else ".", "notifications.yml"),
+        )
+        if os.path.exists(notif_path):
+            self._notifier.load_config(notif_path)
+        await self._scheduler.start()
 
     async def shutdown(self):
+        await self._scheduler.stop()
+        await self._callback_server.stop()
         await self.db.close()
 
     async def create_campaign(self, name: str, description: str = "", tags: list[str] = None) -> Campaign:
@@ -98,6 +117,17 @@ class ScanEngine:
         else:
             session = await self.session_mgr.create(campaign_id, target, config_dict)
             session_id = session.id
+
+        # Scope validation
+        scope_data = config_dict.get("scope", {})
+        if scope_data:
+            scope_cfg = load_scope_from_dict(scope_data)
+            warning = scope_cfg.validate_target(target)
+            if warning and "out of scope" in warning:
+                raise ShadowReconError(warning)
+
+        # Start SSRF callback server
+        await self._callback_server.start()
 
         result = ScanResult(session_id=session_id, target=target, status=ScanStatus.PENDING)
         result.started_at = datetime.utcnow()
@@ -337,6 +367,24 @@ class ScanEngine:
             await self.session_mgr.add_error(session_id, f"{e}\n{tb}")
             await self.session_mgr.finalize(session_id, ScanStatus.FAILED)
             self._emit("error", {"session_id": session_id, "error": str(e), "traceback": tb})
+
+        finally:
+            await self._callback_server.stop()
+            severity = "info"
+            if result.status == ScanStatus.FAILED:
+                severity = "high"
+            elif result.status == ScanStatus.CANCELLED:
+                severity = "medium"
+            elif result.status == ScanStatus.COMPLETED:
+                severity = "low"
+            await self._notifier.send(NotificationEvent(
+                event_type="scan.complete",
+                title=f"Scan {result.status.value}: {target}",
+                description=f"Session {session_id} completed with status {result.status.value}",
+                severity=severity,
+                target=target,
+                session_id=session_id,
+            ))
 
         return result
 
