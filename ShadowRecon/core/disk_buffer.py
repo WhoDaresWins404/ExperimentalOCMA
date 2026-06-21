@@ -39,20 +39,24 @@ class DiskBuffer:
     async def write_endpoint(self, endpoint: Endpoint):
         await self.write_endpoints([endpoint])
 
-    def read_findings(self) -> Iterator[Finding]:
+    def read_findings(self, limit: int = None) -> Iterator[Finding]:
         if not self._f_path.exists():
             return
         with open(self._f_path, "r", encoding="utf-8") as f:
-            for line in f:
+            for i, line in enumerate(f):
+                if limit is not None and i >= limit:
+                    break
                 line = line.strip()
                 if line:
                     yield Finding.model_validate_json(line)
 
-    def read_endpoints(self) -> Iterator[Endpoint]:
+    def read_endpoints(self, limit: int = None) -> Iterator[Endpoint]:
         if not self._e_path.exists():
             return
         with open(self._e_path, "r", encoding="utf-8") as f:
-            for line in f:
+            for i, line in enumerate(f):
+                if limit is not None and i >= limit:
+                    break
                 line = line.strip()
                 if line:
                     yield Endpoint.model_validate_json(line)

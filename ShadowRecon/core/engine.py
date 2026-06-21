@@ -265,9 +265,11 @@ class ScanEngine:
                         while True:
                             if self._cancelled:
                                 # Flush buffered findings to DB before cancel
-                                for f in buffer.read_findings():
+                                cnt = 0
+                                for f in buffer.read_findings(limit=scan_config.max_findings):
                                     await self.db.add_finding(f)
-                                for ep in buffer.read_endpoints():
+                                    cnt += 1
+                                for ep in buffer.read_endpoints(limit=scan_config.max_endpoints):
                                     await self.db.add_endpoint(ep)
                                 await self._update_scanner_state(
                                     session_id, scheduler
@@ -334,14 +336,10 @@ class ScanEngine:
                             target, scan_config.host_unreachable_timeout
                         )
                         await host_monitor.probe()
-                        scanner_results = await self._run_scanners_legacy(
+                        await self._run_scanners_legacy(
                             scan_target, scanner_instances, session_id,
-                            scan_config, host_monitor
+                            scan_config, host_monitor, buffer,
                         )
-                        for finds, eps in scanner_results.values():
-                            await buffer.write_findings(finds)
-                            await buffer.write_endpoints(eps)
-                        scanner_results.clear()
                     for inst in scanner_instances.values():
                         await inst.cleanup()
                     scanner_instances.clear()
@@ -352,10 +350,10 @@ class ScanEngine:
 
                 loop = asyncio.get_event_loop()
                 raw_endpoints = await loop.run_in_executor(
-                    None, lambda: list(buffer.read_endpoints())
+                    None, lambda: list(buffer.read_endpoints(limit=scan_config.max_endpoints))
                 )
                 raw_findings = await loop.run_in_executor(
-                    None, lambda: list(buffer.read_findings())
+                    None, lambda: list(buffer.read_findings(limit=scan_config.max_findings))
                 )
                 deduped_endpoints = await self.deduplicator.dedup_endpoints_stream(
                     raw_endpoints
@@ -502,9 +500,11 @@ class ScanEngine:
         session_id: str,
         scan_config: ScanConfig = None,
         host_monitor: HostMonitor = None,
-    ) -> dict[str, tuple[list[Finding], list[Endpoint]]]:
-        """Legacy linear scanner pipeline — used when intelligence is disabled."""
-        results = {}
+        buffer=None,
+    ):
+        """Legacy linear scanner pipeline — used when intelligence is disabled.
+        Writes results inline to buffer if provided, avoiding in-memory accumulation.
+        """
         completed_scanners = []
 
         cfg = scan_config or self.config
@@ -534,8 +534,10 @@ class ScanEngine:
             try:
                 self._emit("scanner_start", {"scanner": name, "session_id": session_id})
                 findings, endpoints = await scanner.scan(target)
-                results[name] = (findings, endpoints)
                 completed_scanners.append(name)
+                if buffer:
+                    await buffer.write_findings(findings)
+                    await buffer.write_endpoints(endpoints)
                 await self.session_mgr.update_scanner_state(
                     session_id, {"completed_scanners": completed_scanners}
                 )
@@ -547,11 +549,8 @@ class ScanEngine:
                 })
             except Exception as e:
                 self._emit("scanner_error", {"scanner": name, "error": str(e), "session_id": session_id})
-                results[name] = ([], [])
             finally:
                 await scanner.cleanup()
-
-        return results
 
     def _build_summary(self, result: ScanResult, duration: float, llm_summary: str = "") -> ScanSummary:
         by_type = {}
