@@ -30,7 +30,7 @@
         <span class="text-cyber-muted-2 whitespace-nowrap shrink-0">{{ ex.timing_ms }}ms</span>
         <span class="text-cyber-muted-2 whitespace-nowrap shrink-0">{{ formatSize(ex.response_size) }}</span>
       </div>
-      <div class="text-cyber-muted-2 text-xs mt-1 truncate break-all italic">{{ ex.body_preview }}</div>
+      <div class="text-cyber-muted-2 text-xs mt-1 break-all italic line-clamp-2">{{ ex.body_preview }}</div>
       <div class="text-cyber-muted-2 text-xs mt-1" v-if="ex.scanner">
         <span class="bg-cyber-bg px-1.5 py-0.5 rounded text-cyber-muted">{{ ex.scanner }}</span>
       </div>
