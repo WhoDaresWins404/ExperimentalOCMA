@@ -52,6 +52,27 @@ class ScanEngine:
         self._notifier = NotificationManager()
         self._response_diff = ResponseDiffEngine()
         self._scheduler = ScanScheduler(self)
+        self._monitor_task: Optional[asyncio.Task] = None
+        self._emit_tasks: set[asyncio.Task] = set()
+        self._emit_max = 500
+
+    async def _memory_monitor(self, interval: int = 30):
+        try:
+            import psutil
+            proc = psutil.Process()
+            while True:
+                await asyncio.sleep(interval)
+                rss = proc.memory_info().rss
+                tasks = len(asyncio.all_tasks())
+                print(f"[mem] RSS={rss//1024//1024}MB tasks={tasks}")
+                if rss > 1_000_000_000:
+                    print(f"[mem] WARNING: RSS > 1GB ({rss//1024//1024}MB)")
+                if rss > 3_000_000_000:
+                    print(f"[mem] CRITICAL: RSS > 3GB ({rss//1024//1024}MB)")
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[mem] monitor error: {e}")
 
     def on_progress(self, callback: ProgressCallback):
         self._progress_callbacks.append(callback)
@@ -63,10 +84,14 @@ class ScanEngine:
             pass
 
     def _emit(self, event: str, data: Any):
+        if len(self._emit_tasks) >= self._emit_max:
+            return
         for cb in self._progress_callbacks:
             try:
                 if asyncio.iscoroutinefunction(cb):
-                    asyncio.create_task(cb(event, data))
+                    task = asyncio.create_task(cb(event, data))
+                    self._emit_tasks.add(task)
+                    task.add_done_callback(self._emit_tasks.discard)
                 else:
                     cb(event, data)
             except Exception:
@@ -182,6 +207,7 @@ class ScanEngine:
         result = ScanResult(session_id=session_id, target=target, status=ScanStatus.PENDING)
         result.started_at = datetime.utcnow()
         start_time = time.time()
+        self._monitor_task = asyncio.create_task(self._memory_monitor())
 
         try:
             # ── Phase 0: WAF Check ────────────────────────────────────────
@@ -449,6 +475,9 @@ class ScanEngine:
             self._emit("error", {"session_id": session_id, "error": str(e), "traceback": tb})
 
         finally:
+            if self._monitor_task:
+                self._monitor_task.cancel()
+                self._monitor_task = None
             await self._callback_server.stop()
             self._callback_server.drain()
             asyncio.create_task(self.db.trim_raw_responses(

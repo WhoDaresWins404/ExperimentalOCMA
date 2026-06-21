@@ -69,7 +69,7 @@ class PriorityScheduler:
         for name in self._scanners:
             if name in queued or name in profile.skipped_scanners:
                 continue
-            if mode == "waf_only":
+            if mode in ("waf_only", "light"):
                 continue
             job = ScannerJob(
                 priority=profile.scanner_priorities.get(name, 60),
