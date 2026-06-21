@@ -56,23 +56,44 @@ class ScanEngine:
         self._emit_tasks: set[asyncio.Task] = set()
         self._emit_max = 500
 
-    async def _memory_monitor(self, interval: int = 30):
+    @staticmethod
+    def _get_rss() -> int:
         try:
             import psutil
-            proc = psutil.Process()
-            while True:
-                await asyncio.sleep(interval)
-                rss = proc.memory_info().rss
-                tasks = len(asyncio.all_tasks())
-                print(f"[mem] RSS={rss//1024//1024}MB tasks={tasks}")
-                if rss > 1_000_000_000:
-                    print(f"[mem] WARNING: RSS > 1GB ({rss//1024//1024}MB)")
-                if rss > 3_000_000_000:
-                    print(f"[mem] CRITICAL: RSS > 3GB ({rss//1024//1024}MB)")
+            return psutil.Process().memory_info().rss
         except ImportError:
             pass
-        except Exception as e:
-            print(f"[mem] monitor error: {e}")
+        try:
+            with open("/proc/self/status") as f:
+                for line in f:
+                    if line.startswith("VmRSS:"):
+                        return int(line.split()[1]) * 1024
+        except Exception:
+            pass
+        return 0
+
+    @staticmethod
+    def _malloc_trim():
+        try:
+            import ctypes
+            libc = ctypes.CDLL("libc.so.6")
+            libc.malloc_trim(0)
+        except Exception:
+            pass
+
+    async def _memory_monitor(self, interval: int = 30):
+        while True:
+            try:
+                await asyncio.sleep(interval)
+                rss = self._get_rss()
+                tasks = len(asyncio.all_tasks())
+                print(f"[mem] RSS={rss//1024//1024}MB tasks={tasks}")
+                if rss > 800_000_000:
+                    print(f"[mem] running malloc_trim (RSS={rss//1024//1024}MB)")
+                    gc.collect()
+                    self._malloc_trim()
+            except Exception as e:
+                print(f"[mem] monitor error: {e}")
 
     def on_progress(self, callback: ProgressCallback):
         self._progress_callbacks.append(callback)
@@ -326,6 +347,8 @@ class ScanEngine:
                                 await intel.absorb_endpoint(ep, scanner_name)
                             await buffer.write_findings(findings)
                             await buffer.write_endpoints(endpoints)
+                            gc.collect()
+                            self._malloc_trim()
 
                         await self._update_scanner_state(
                             session_id, scheduler
@@ -567,6 +590,8 @@ class ScanEngine:
                 if buffer:
                     await buffer.write_findings(findings)
                     await buffer.write_endpoints(endpoints)
+                    gc.collect()
+                    self._malloc_trim()
                 await self.session_mgr.update_scanner_state(
                     session_id, {"completed_scanners": completed_scanners}
                 )
