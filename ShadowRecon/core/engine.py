@@ -259,6 +259,9 @@ class ScanEngine:
                         )
                         scheduler.build_from_profile(intel.profile, scan_config.scan_mode)
 
+                        _last_scanner_completed = time.time()
+                        SCANNER_HANG_TIMEOUT = 1800
+
                         while True:
                             if self._cancelled:
                                 # Flush buffered findings to DB before cancel
@@ -273,11 +276,22 @@ class ScanEngine:
                                 raise ScanCancelled()
                             if host_monitor.is_dead:
                                 raise HostUnreachable(target, host_monitor.unreachable_for)
+                            if time.time() - _last_scanner_completed > SCANNER_HANG_TIMEOUT:
+                                elapsed = time.time() - _last_scanner_completed
+                                raise HostUnreachable(target, elapsed)
                             await host_monitor.probe_if_needed()
+                            self._emit("scanner_start", {"scanner": "next", "session_id": session_id})
                             job_result = await scheduler.run_next(scan_target)
                             if job_result is None:
                                 break
                             scanner_name, (findings, endpoints) = job_result
+                            self._emit("scanner_done", {
+                                "scanner": scanner_name,
+                                "findings": len(findings),
+                                "endpoints": len(endpoints),
+                                "session_id": session_id,
+                            })
+                            _last_scanner_completed = time.time()
                             for f in findings:
                                 await intel.absorb_finding(f, scanner_name)
                             for ep in endpoints:
@@ -336,11 +350,18 @@ class ScanEngine:
                 await self.session_mgr.update_status(session_id, ScanStatus.DEDUP)
                 self._emit("status", {"session_id": session_id, "status": ScanStatus.DEDUP.value})
 
+                loop = asyncio.get_event_loop()
+                raw_endpoints = await loop.run_in_executor(
+                    None, lambda: list(buffer.read_endpoints())
+                )
+                raw_findings = await loop.run_in_executor(
+                    None, lambda: list(buffer.read_findings())
+                )
                 deduped_endpoints = await self.deduplicator.dedup_endpoints_stream(
-                    buffer.read_endpoints()
+                    raw_endpoints
                 )
                 deduped_findings = await self.deduplicator.dedup_findings_stream(
-                    buffer.read_findings()
+                    raw_findings
                 )
                 await buffer.cleanup()
 
