@@ -144,7 +144,12 @@ export const useScanStore = defineStore('scan', () => {
   async function fetchExchanges(sessionId) {
     try {
       const { data } = await axios.get(`${API}/scan/${sessionId}/exchanges`)
-      httpExchanges.value = data
+      if (data && data.length) {
+        const existing = new Set(httpExchanges.value.map(e => e.id))
+        for (const ex of data) {
+          if (!existing.has(ex.id)) httpExchanges.value.push(ex)
+        }
+      }
     } catch (e) {
       console.error('Failed to fetch exchanges:', e)
     }
