@@ -1,7 +1,7 @@
 <template>
-  <div class="py-8 max-w-4xl mx-auto">
+  <div class="py-8 max-w-6xl mx-auto">
     <div class="flex items-center justify-between mb-6">
-      <button @click="goBack" class="bg-transparent border border-cyber-border text-cyber-muted px-4 py-2 rounded cursor-pointer hover:text-cyber-accent hover:border-cyber-accent transition-colors text-sm">&larr; Back to UX Lab</button>
+      <button @click="goBack" class="bg-transparent border border-cyber-border text-cyber-muted px-4 py-2 rounded cursor-pointer hover:text-cyber-accent hover:border-cyber-accent transition-colors text-sm">&larr; Dashboard</button>
       <h1 class="text-cyber-accent text-xl font-bold">Scan Wizard</h1>
       <span class="text-cyber-muted-2 text-sm">Step {{ step }} of 5</span>
     </div>
@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <div class="bg-cyber-surface border border-cyber-border rounded-xl p-6 min-h-[420px]">
+    <div class="bg-cyber-surface border border-cyber-border rounded-xl p-6 min-h-[560px]">
       <div v-if="step === 1">
         <h2 class="text-cyber-accent font-bold text-lg mb-4">Target</h2>
         <div class="grid grid-cols-2 gap-5">
@@ -178,28 +178,145 @@
 
       <div v-if="step === 3">
         <h2 class="text-cyber-accent font-bold text-lg mb-4">Modules</h2>
-        <div class="flex items-center gap-3 mb-4">
-          <input v-model="scannerSearch" type="text" placeholder="Search scanners..." class="flex-1 bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
-          <button @click="selectAllScanners" class="text-[10px] px-3 py-1.5 rounded bg-cyber-bg border border-cyber-border text-cyber-muted hover:text-cyber-accent hover:border-cyber-accent transition-colors cursor-pointer">Select All</button>
-          <button @click="deselectAllScanners" class="text-[10px] px-3 py-1.5 rounded bg-cyber-bg border border-cyber-border text-cyber-muted hover:text-cyber-accent hover:border-cyber-accent transition-colors cursor-pointer">Deselect All</button>
-        </div>
-        <div class="text-cyber-muted-2 text-xs mb-4">{{ form.enabled_scanners.length }} of {{ scannerManifests.length }} scanners selected</div>
-        <div v-if="scannerLoading" class="text-cyber-muted text-sm py-8 text-center">Loading scanners...</div>
-        <div v-else-if="Object.keys(filteredScannerGroups).length === 0" class="text-cyber-muted text-sm py-8 text-center">No scanners match your search.</div>
-        <div v-else class="space-y-3 max-h-[280px] overflow-y-auto pr-1">
-          <div v-for="(group, cat) in filteredScannerGroups" :key="cat">
-            <details class="bg-cyber-bg border border-cyber-border rounded-lg group">
-              <summary class="text-cyber-muted-2 text-xs uppercase tracking-wider px-3 py-2 cursor-pointer select-none hover:text-cyber-accent transition-colors flex items-center gap-2">{{ cat }} <span class="text-cyber-muted-2 font-normal">({{ group.length }})</span></summary>
-              <div class="px-3 pb-2 pt-1 space-y-1 border-t border-cyber-border">
-                <label v-for="m in group" :key="m.name"
-                  class="flex items-center gap-2 px-2.5 py-1.5 rounded cursor-pointer text-xs transition-colors"
-                  :class="form.enabled_scanners.includes(m.name) ? 'bg-cyber-accent/10 text-cyber-accent' : 'text-cyber-muted hover:bg-cyber-surface'">
-                  <input type="checkbox" :value="m.name" v-model="form.enabled_scanners" class="accent-cyber-accent" />
-                  <span class="flex-1">{{ m.name }}</span>
-                  <span class="text-[0.55rem] uppercase px-1.5 py-0.5 rounded font-bold" :class="riskBadgeClass(m.risk || 'safe')">{{ m.risk || 'safe' }}</span>
-                </label>
+
+        <!-- Toolbar -->
+        <div class="flex items-center gap-3 mb-3 flex-wrap">
+          <input v-model="scannerSearch" type="text" placeholder="Search scanners..."
+            class="flex-1 min-w-[160px] bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors" />
+          <select v-model="filterCategory"
+            class="bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors cursor-pointer">
+            <option value="all">All Categories</option>
+            <option value="recon">Recon</option>
+            <option value="discovery">Discovery</option>
+            <option value="exploit">Exploit</option>
+            <option value="analysis">Analysis</option>
+          </select>
+          <select v-model="filterRisk"
+            class="bg-cyber-bg border border-cyber-border text-cyber-text px-3 py-2 rounded text-sm outline-none focus:border-cyber-accent transition-colors cursor-pointer">
+            <option value="all">All Risk</option>
+            <option value="safe">Safe</option>
+            <option value="moderate">Moderate</option>
+            <option value="aggressive">Aggressive</option>
+          </select>
+          <button @click="showSaveDialog = true"
+            class="bg-cyber-surface-2 border border-cyber-border text-cyber-text px-3 py-2 rounded text-xs cursor-pointer hover:text-cyber-accent hover:border-cyber-accent transition-colors whitespace-nowrap flex items-center gap-1.5">+ Save Config</button>
+          <div class="relative">
+            <button @click="presetMenuOpen = !presetMenuOpen"
+              class="bg-cyber-surface-2 border border-cyber-border text-cyber-text px-3 py-2 rounded text-xs cursor-pointer hover:text-cyber-accent hover:border-cyber-accent transition-colors whitespace-nowrap flex items-center gap-1.5">
+              Load &#9662;
+            </button>
+            <div v-if="presetMenuOpen" class="absolute right-0 top-full mt-1 w-56 bg-cyber-surface border border-cyber-border rounded-lg shadow-xl z-50 py-1 max-h-64 overflow-y-auto">
+              <button @mousedown.prevent="applyPreset('all')" class="w-full text-left px-3 py-1.5 text-xs text-cyber-text hover:bg-cyber-bg transition-colors cursor-pointer bg-transparent border-none">All Scanners</button>
+              <button @mousedown.prevent="applyPreset('safe')" class="w-full text-left px-3 py-1.5 text-xs text-cyber-text hover:bg-cyber-bg transition-colors cursor-pointer bg-transparent border-none">Safe Only</button>
+              <button @mousedown.prevent="applyPreset('recon_discovery')" class="w-full text-left px-3 py-1.5 text-xs text-cyber-text hover:bg-cyber-bg transition-colors cursor-pointer bg-transparent border-none">Recon + Discovery</button>
+              <div v-if="savedPresets.length" class="border-t border-cyber-border my-1"></div>
+              <div v-for="preset in savedPresets" :key="preset.name" class="flex items-center px-3 py-1.5 group hover:bg-cyber-bg">
+                <button @mousedown.prevent="applyPreset(preset.name)" class="flex-1 text-left text-xs text-cyber-text bg-transparent border-none cursor-pointer truncate">{{ preset.name }}</button>
+                <button @mousedown.prevent="deletePreset(preset.name)" class="text-cyber-muted hover:text-cyber-danger bg-transparent border-none cursor-pointer text-xs opacity-0 group-hover:opacity-100 transition-opacity">&times;</button>
               </div>
-            </details>
+              <div v-if="savedPresets.length === 0" class="px-3 py-2 text-xs text-cyber-muted-2 text-center">No saved configs</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats + quick-action chips -->
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div class="text-cyber-muted-2 text-xs">{{ form.enabled_scanners.length }} of {{ scannerManifests.length }} scanners selected</div>
+          <div class="flex gap-1.5 flex-wrap">
+            <button @click="selectAllScanners" class="text-[10px] px-2 py-1 rounded bg-cyber-bg border border-cyber-border text-cyber-muted hover:text-cyber-accent transition-colors cursor-pointer">Select All</button>
+            <button @click="deselectAllScanners" class="text-[10px] px-2 py-1 rounded bg-cyber-bg border border-cyber-border text-cyber-muted hover:text-cyber-accent transition-colors cursor-pointer">Clear</button>
+            <button @mousedown.prevent="applyPreset('safe')" class="text-[10px] px-2 py-1 rounded bg-green-900/30 border border-green-700/40 text-green-400 hover:bg-green-900/50 transition-colors cursor-pointer">Safe Only</button>
+            <button @mousedown.prevent="applyPreset('recon_discovery')" class="text-[10px] px-2 py-1 rounded bg-cyber-accent/10 border border-cyber-accent/30 text-cyber-accent hover:bg-cyber-accent/20 transition-colors cursor-pointer">Recon+Disc</button>
+          </div>
+        </div>
+
+        <!-- Scanner cards grid -->
+        <div v-if="scannerLoading" class="text-cyber-muted text-sm py-12 text-center">Loading scanners...</div>
+        <div v-else-if="Object.keys(scannerGroups).length === 0" class="text-cyber-muted text-sm py-12 text-center">No scanners match your filters.</div>
+        <div v-else class="space-y-5 overflow-y-auto pr-1" style="max-height:380px">
+          <div v-for="(group, cat) in scannerGroups" :key="cat">
+            <div class="text-cyber-muted-2 text-[10px] uppercase tracking-wider mb-2 sticky top-0 bg-cyber-surface py-1 z-10 flex items-center gap-2">
+              <span>{{ cat }}</span>
+              <span class="text-cyber-muted-2 font-normal">({{ group.length }})</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
+              <div v-for="m in group" :key="m.name"
+                @click="toggleScanner(m)"
+                @mouseenter="onCardEnter(m, $event)"
+                @mouseleave="onCardLeave"
+                class="relative bg-cyber-bg border-2 rounded-lg p-2.5 cursor-pointer transition-all select-none"
+                :class="form.enabled_scanners.includes(m.name)
+                  ? 'border-cyber-accent bg-cyber-accent/5'
+                  : 'border-cyber-border/50 hover:border-cyber-border hover:bg-cyber-surface'">
+                <!-- Checkmark -->
+                <div v-if="form.enabled_scanners.includes(m.name)"
+                  class="absolute top-1 right-1 w-4 h-4 bg-cyber-accent rounded-full flex items-center justify-center">
+                  <span class="text-[8px] text-cyber-bg font-bold">&#10003;</span>
+                </div>
+                <!-- Label -->
+                <div class="text-xs font-bold text-cyber-text mb-1.5 leading-tight pr-4">{{ humanLabel(m.name) }}</div>
+                <!-- Badges -->
+                <div class="flex flex-wrap gap-1 mb-1.5">
+                  <span class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold" :class="categoryBadgeClass(m.category)">{{ m.category }}</span>
+                  <span class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold" :class="riskBadgeClass(m.risk_level)">{{ m.risk_level }}</span>
+                </div>
+                <!-- Cost bar -->
+                <div class="flex items-center gap-1.5 mb-1">
+                  <div class="flex-1 h-1.5 bg-cyber-surface-2 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all" :class="costBarClass(m.estimated_cost)" :style="{ width: Math.min(m.estimated_cost, 100) + '%' }"></div>
+                  </div>
+                  <span class="text-[9px] text-cyber-muted-2 font-mono">{{ m.estimated_cost }}</span>
+                </div>
+                <!-- Tags -->
+                <div v-if="m.produces_tag_patterns?.length" class="text-[9px] text-cyber-muted-2 truncate">{{ m.produces_tag_patterns.join(', ') }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tooltip overlay -->
+        <Teleport to="body">
+          <div v-if="hoveredScanner && tooltipTarget"
+            :style="{ left: tooltipTarget.x + 'px', top: tooltipTarget.y + 'px' }"
+            class="fixed z-[9999] -translate-x-1/2 -translate-y-full pt-2 pointer-events-none">
+            <div class="bg-cyber-surface border border-cyber-border rounded-lg p-3 shadow-2xl w-72">
+              <div class="text-xs font-bold text-cyber-text mb-2">{{ humanLabel(hoveredScanner.name) }}</div>
+              <div class="space-y-1.5 text-[11px]">
+                <div class="flex justify-between"><span class="text-cyber-muted-2">Name</span><span class="text-cyber-text font-mono">{{ hoveredScanner.name }}</span></div>
+                <div class="flex justify-between"><span class="text-cyber-muted-2">Category</span><span :class="['font-bold', categoryTextClass(hoveredScanner.category)]">{{ hoveredScanner.category }}</span></div>
+                <div class="flex justify-between"><span class="text-cyber-muted-2">Risk</span><span :class="['font-bold', riskTextClass(hoveredScanner.risk_level)]">{{ hoveredScanner.risk_level }}</span></div>
+                <div class="flex justify-between"><span class="text-cyber-muted-2">Cost</span><span class="text-cyber-text">{{ hoveredScanner.estimated_cost }}/100</span></div>
+                <div v-if="hoveredScanner.prerequisites?.length" class="border-t border-cyber-border pt-1.5 mt-1.5">
+                  <div class="text-cyber-muted-2 text-[10px] uppercase tracking-wider mb-1">Prerequisites</div>
+                  <div class="flex flex-wrap gap-1">
+                    <span v-for="p in hoveredScanner.prerequisites" :key="p" class="bg-cyber-bg px-1.5 py-0.5 rounded text-[10px] text-cyber-text">{{ p }}</span>
+                  </div>
+                </div>
+                <div v-if="hoveredScanner.produces_endpoint_types?.length" class="border-t border-cyber-border pt-1.5 mt-1.5">
+                  <div class="text-cyber-muted-2 text-[10px] uppercase tracking-wider mb-1">Produces Endpoints</div>
+                  <div class="flex flex-wrap gap-1">
+                    <span v-for="t in hoveredScanner.produces_endpoint_types" :key="t" class="bg-cyber-bg px-1.5 py-0.5 rounded text-[10px] text-cyber-text">{{ t }}</span>
+                  </div>
+                </div>
+                <div v-if="hoveredScanner.produces_tag_patterns?.length" class="border-t border-cyber-border pt-1.5 mt-1.5">
+                  <div class="text-cyber-muted-2 text-[10px] uppercase tracking-wider mb-1">Tags</div>
+                  <span class="text-cyber-text text-[11px]">{{ hoveredScanner.produces_tag_patterns.join(', ') }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Teleport>
+
+        <!-- Save dialog -->
+        <div v-if="showSaveDialog" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" @click.self="showSaveDialog = false">
+          <div class="bg-cyber-surface border border-cyber-border rounded-xl p-5 w-80 shadow-2xl">
+            <h3 class="text-cyber-accent font-bold text-sm mb-3">Save Scanner Config</h3>
+            <input v-model="presetName" type="text" placeholder="My config name" ref="presetInputRef"
+              class="w-full bg-cyber-bg border border-cyber-border text-cyber-text px-3.5 py-2.5 rounded text-sm outline-none focus:border-cyber-accent transition-colors mb-4" />
+            <div class="flex gap-2 justify-end">
+              <button @click="showSaveDialog = false" class="bg-transparent border border-cyber-border text-cyber-muted px-4 py-2 rounded text-xs cursor-pointer hover:text-cyber-text transition-colors">Cancel</button>
+              <button @click="confirmSavePreset" :disabled="!presetName.trim()" class="bg-cyber-accent text-cyber-bg font-bold px-4 py-2 rounded text-xs cursor-pointer hover:bg-[#00b8d4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Save</button>
+            </div>
           </div>
         </div>
       </div>
@@ -364,7 +481,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
 
@@ -384,6 +501,15 @@ const enableOast = ref(false)
 const rateLimit = ref(0)
 const scheduleCron = ref('')
 const webhookUrl = ref('')
+const hoveredScanner = ref(null)
+const tooltipTarget = ref(null)
+const filterCategory = ref('all')
+const filterRisk = ref('all')
+const showSaveDialog = ref(false)
+const presetName = ref('')
+const presetMenuOpen = ref(false)
+const presetInputRef = ref(null)
+const savedPresets = ref([])
 
 const PROFILES = {
   quick:   { scan_mode: 'light',   crawl_depth: 0, threads: 10, timeout: 30,   xss_mode: 'probe',  enable_llm: false, enable_llm_payloads: false, detection_mode: 'detect' },
@@ -431,11 +557,15 @@ const form = reactive({
   scope_text: '',
 })
 
-const filteredScannerGroups = computed(() => {
+const scannerGroups = computed(() => {
   const groups = {}
   const q = scannerSearch.value.toLowerCase()
+  const catFilter = filterCategory.value
+  const riskFilter = filterRisk.value
   for (const m of scannerManifests.value) {
     if (q && !m.name.toLowerCase().includes(q)) continue
+    if (catFilter !== 'all' && m.category !== catFilter) continue
+    if (riskFilter !== 'all' && m.risk_level !== riskFilter) continue
     const cat = m.category || 'other'
     if (!groups[cat]) groups[cat] = []
     groups[cat].push(m)
@@ -479,7 +609,7 @@ function riskBadgeClass(risk) {
 }
 
 function goBack() {
-  $router.push('/ux-test')
+  $router.push('/dashboard')
 }
 
 function prevStep() {
@@ -514,6 +644,130 @@ function selectAllScanners() {
 function deselectAllScanners() {
   form.enabled_scanners = []
 }
+
+function loadPresets() {
+  try {
+    const raw = localStorage.getItem('wizard_scanner_presets')
+    savedPresets.value = raw ? JSON.parse(raw) : []
+  } catch (_) {
+    savedPresets.value = []
+  }
+}
+
+function savePresetToDisk(name) {
+  const all = savedPresets.value.filter(p => p.name !== name)
+  all.push({ name, scanners: [...form.enabled_scanners] })
+  localStorage.setItem('wizard_scanner_presets', JSON.stringify(all))
+  loadPresets()
+}
+
+function confirmSavePreset() {
+  if (!presetName.value.trim()) return
+  savePresetToDisk(presetName.value.trim())
+  presetName.value = ''
+  showSaveDialog.value = false
+}
+
+function applyPreset(key) {
+  presetMenuOpen.value = false
+  if (key === 'all') {
+    form.enabled_scanners = scannerManifests.value.map(m => m.name)
+  } else if (key === 'safe') {
+    form.enabled_scanners = scannerManifests.value.filter(m => m.risk_level === 'safe').map(m => m.name)
+  } else if (key === 'recon_discovery') {
+    form.enabled_scanners = scannerManifests.value.filter(m => m.category === 'recon' || m.category === 'discovery').map(m => m.name)
+  } else {
+    const preset = savedPresets.value.find(p => p.name === key)
+    if (preset) form.enabled_scanners = [...preset.scanners]
+  }
+}
+
+function deletePreset(name) {
+  const all = savedPresets.value.filter(p => p.name !== name)
+  localStorage.setItem('wizard_scanner_presets', JSON.stringify(all))
+  loadPresets()
+}
+
+function humanLabel(name) {
+  const overrides = {
+    sqli: 'SQL Injection', cmdi: 'Command Injection', nosqli: 'NoSQL Injection',
+    xss: 'XSS', csrf: 'CSRF', ssrf: 'SSRF', ssti: 'SSTI', lfi: 'LFI',
+    xxe: 'XXE', idor: 'IDOR', jwt: 'JWT', tls: 'TLS', cors: 'CORS',
+    deser: 'Deserialization', blind_xss: 'Blind XSS', proto_pollution: 'Prototype Pollution',
+    smuggling: 'HTTP Smuggling', cache_poisoning: 'Cache Poisoning',
+    account_takeover: 'Account Takeover', race_condition: 'Race Condition',
+    graphql_batch: 'GraphQL Batch', mass_assignment: 'Mass Assignment',
+    http2: 'HTTP/2', cloud_metadata: 'Cloud Metadata', jwt_advanced: 'JWT Advanced',
+    wasm: 'WASM', dns_rebinding: 'DNS Rebinding', web3: 'Web3',
+    llm_payload: 'LLM Payload', openapi: 'OpenAPI', ratelimit: 'Rate Limit',
+    anomaly: 'Anomaly Detection', misconfig: 'Misconfiguration',
+    recon: 'Reconnaissance', subdomain: 'Subdomain', tech: 'Tech Fingerprint',
+    waf_detector: 'WAF Detector', directory: 'Directory Scan',
+    api_fuzzer: 'API Fuzzer', api_scanner: 'API Scanner', reflection: 'Reflection',
+    form: 'Form Analysis', crawler: 'Crawler', upload: 'File Upload',
+    websocket: 'WebSocket', redirect: 'Open Redirect',
+    js_analyzer: 'JavaScript Analyzer', reflection_injector: 'Reflection Injector',
+    reflection_mapper: 'Reflection Mapper',
+  }
+  const key = name.replace(/_scanner$/, '')
+  return overrides[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function categoryBadgeClass(cat) {
+  return {
+    recon: 'bg-blue-900 text-blue-400',
+    discovery: 'bg-green-900 text-green-400',
+    exploit: 'bg-red-900 text-red-400',
+    analysis: 'bg-purple-900 text-purple-300',
+  }[cat] || 'bg-cyber-surface text-cyber-muted-2'
+}
+
+function categoryTextClass(cat) {
+  return {
+    recon: 'text-blue-400',
+    discovery: 'text-green-400',
+    exploit: 'text-red-400',
+    analysis: 'text-purple-300',
+  }[cat] || 'text-cyber-text'
+}
+
+function riskTextClass(risk) {
+  return {
+    safe: 'text-green-400',
+    moderate: 'text-yellow-400',
+    aggressive: 'text-red-400',
+  }[risk] || 'text-cyber-text'
+}
+
+function costBarClass(cost) {
+  if (cost >= 70) return 'bg-red-500'
+  if (cost >= 40) return 'bg-yellow-500'
+  return 'bg-green-500'
+}
+
+function toggleScanner(m) {
+  const idx = form.enabled_scanners.indexOf(m.name)
+  if (idx >= 0) {
+    form.enabled_scanners.splice(idx, 1)
+  } else {
+    form.enabled_scanners.push(m.name)
+  }
+}
+
+function onCardEnter(m, event) {
+  hoveredScanner.value = m
+  const rect = event.currentTarget.getBoundingClientRect()
+  tooltipTarget.value = { x: rect.left + rect.width / 2, y: rect.top }
+}
+
+function onCardLeave() {
+  hoveredScanner.value = null
+  tooltipTarget.value = null
+}
+
+onMounted(() => {
+  loadPresets()
+})
 
 async function testLlm() {
   llmTesting.value = true

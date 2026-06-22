@@ -12,7 +12,7 @@ import UxIde from './views/UxIde.vue'
 import UxWidgets from './views/UxWidgets.vue'
 
 const routes = [
-  { path: '/', redirect: '/dashboard' },
+  { path: '/', redirect: '/ux/wizard' },
   { path: '/dashboard', name: 'Dashboard', component: Dashboard },
   { path: '/scan/', redirect: '/dashboard' },
   { path: '/scan', redirect: '/dashboard' },
