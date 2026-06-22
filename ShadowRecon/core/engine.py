@@ -478,7 +478,7 @@ class ScanEngine:
             await self.session_mgr.finalize(session_id, ScanStatus.FAILED)
             self._emit("error", {"session_id": session_id, "error": msg})
 
-        except ScanCancelled:
+        except (ScanCancelled, asyncio.CancelledError):
             result.status = ScanStatus.CANCELLED
             result.ended_at = datetime.utcnow()
             await self.session_mgr.finalize(session_id, ScanStatus.CANCELLED)

@@ -489,6 +489,8 @@ def create_app(config: ScanConfig = None) -> FastAPI:
             raise HTTPException(400, f"Scan is already {status}")
         reason = req.reason if req else "user_requested"
         engine.cancel(reason)
+        if session_id in active_scans:
+            active_scans[session_id].cancel()
         return {"status": "cancelling", "session_id": session_id, "reason": reason}
 
     @app.delete("/api/scan/{session_id}")
