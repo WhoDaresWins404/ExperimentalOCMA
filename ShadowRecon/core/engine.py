@@ -7,6 +7,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Callable, Any
+from collections import defaultdict
 
 from .config import ScanConfig
 from .disk_buffer import DiskBuffer
@@ -55,6 +56,7 @@ class ScanEngine:
         self._monitor_task: Optional[asyncio.Task] = None
         self._emit_tasks: set[asyncio.Task] = set()
         self._emit_max = 500
+        self._exchange_counters: dict[str, int] = defaultdict(int)
 
     @staticmethod
     def _get_rss() -> int:
@@ -147,6 +149,10 @@ class ScanEngine:
                 "scanner": scanner_name,
                 "created_at": datetime.utcnow().isoformat(),
             }
+            self._exchange_counters[session_id] += 1
+            cnt = self._exchange_counters[session_id]
+            if cnt <= 5 or cnt % 50 == 0:
+                print(f"[xchg] session={session_id[:8]} cnt={cnt} scanner={scanner_name} {method} {status_code} {url[:80]}")
             await buffer.write_exchange(exchange_data)
             await self.db.add_raw_response(exchange_data)
             return exchange_id
