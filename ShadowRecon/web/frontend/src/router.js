@@ -5,6 +5,11 @@ import Report from './views/Report.vue'
 import MapView from './views/MapView.vue'
 import CampaignDetail from './views/CampaignDetail.vue'
 import ScannerModules from './views/ScannerModules.vue'
+import UxLauncher from './views/UxLauncher.vue'
+import UxWizard from './views/UxWizard.vue'
+import UxHub from './views/UxHub.vue'
+import UxIde from './views/UxIde.vue'
+import UxWidgets from './views/UxWidgets.vue'
 
 const routes = [
   { path: '/', redirect: '/dashboard' },
@@ -16,11 +21,12 @@ const routes = [
   { path: '/map/:id', name: 'MapView', component: MapView, props: true },
   { path: '/campaign/:id', name: 'CampaignDetail', component: CampaignDetail, props: true },
   { path: '/scanners', name: 'ScannerModules', component: ScannerModules },
-  { path: '/ux-test', name: 'UxLauncher', component: () => import('./views/UxLauncher.vue') },
-  { path: '/ux/wizard', name: 'UxWizard', component: () => import('./views/UxWizard.vue') },
-  { path: '/ux/hub', name: 'UxHub', component: () => import('./views/UxHub.vue') },
-  { path: '/ux/ide', name: 'UxIde', component: () => import('./views/UxIde.vue') },
-  { path: '/ux/widgets', name: 'UxWidgets', component: () => import('./views/UxWidgets.vue') },
+  { path: '/ux-test', name: 'UxLauncher', component: UxLauncher },
+  { path: '/ux/wizard', name: 'UxWizard', component: UxWizard },
+  { path: '/ux/hub', name: 'UxHub', component: UxHub },
+  { path: '/ux/ide', name: 'UxIde', component: UxIde },
+  { path: '/ux/widgets', name: 'UxWidgets', component: UxWidgets },
+  { path: '/:pathMatch(.*)*', name: 'NotFound', redirect: '/dashboard' },
 ]
 
 export default createRouter({
