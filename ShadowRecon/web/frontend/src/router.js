@@ -16,6 +16,11 @@ const routes = [
   { path: '/map/:id', name: 'MapView', component: MapView, props: true },
   { path: '/campaign/:id', name: 'CampaignDetail', component: CampaignDetail, props: true },
   { path: '/scanners', name: 'ScannerModules', component: ScannerModules },
+  { path: '/ux-test', name: 'UxLauncher', component: () => import('./views/UxLauncher.vue') },
+  { path: '/ux/wizard', name: 'UxWizard', component: () => import('./views/UxWizard.vue') },
+  { path: '/ux/hub', name: 'UxHub', component: () => import('./views/UxHub.vue') },
+  { path: '/ux/ide', name: 'UxIde', component: () => import('./views/UxIde.vue') },
+  { path: '/ux/widgets', name: 'UxWidgets', component: () => import('./views/UxWidgets.vue') },
 ]
 
 export default createRouter({
