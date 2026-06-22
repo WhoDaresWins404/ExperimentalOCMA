@@ -413,6 +413,14 @@ class Database:
             row = RawResponseRow(**data)
             s.add(row)
 
+    async def add_exchanges_batch(self, exchanges: list[dict]):
+        if not exchanges:
+            return
+        async with self.session() as s:
+            for data in exchanges:
+                row = RawResponseRow(**data)
+                s.add(row)
+
     async def trim_raw_responses(self, session_id: str, max_count: int = 5000):
         async with self.session() as s:
             count = (await s.execute(
@@ -435,6 +443,16 @@ class Database:
                     RawResponseRow.id.in_(ids)
                 )
             )).scalars().all()
+            return [await self._row_to_dict(r) for r in rows]
+
+    async def get_session_exchanges(self, session_id: str, limit: int = None, offset: int = 0) -> list[dict]:
+        async with self.session() as s:
+            q = select(RawResponseRow).where(
+                RawResponseRow.session_id == session_id
+            ).order_by(RawResponseRow.created_at).offset(offset)
+            if limit is not None:
+                q = q.limit(limit)
+            rows = (await s.execute(q)).scalars().all()
             return [await self._row_to_dict(r) for r in rows]
 
     async def find_payload_by_hash(self, context_hash: str) -> Optional[dict]:

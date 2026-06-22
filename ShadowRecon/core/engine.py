@@ -87,15 +87,10 @@ class ScanEngine:
                 await asyncio.sleep(interval)
                 rss = self._get_rss()
                 tasks = len(asyncio.all_tasks())
-                print(f"[mem] RSS={rss//1024//1024}MB tasks={tasks}", end="")
-                if rss > 500_000_000:
-                    import collections
+                g0, g1, g2 = gc.get_count()
+                print(f"[mem] RSS={rss//1024//1024}MB tasks={tasks} gen=({g0},{g1},{g2})", end="")
+                if rss > 800_000_000:
                     gc.collect()
-                    counts = collections.Counter(type(o).__name__ for o in gc.get_objects())
-                    top = counts.most_common(15)
-                    print(f" objects={sum(counts.values())}", end="")
-                    for name, cnt in top:
-                        print(f" {name}={cnt}", end="")
                     self._malloc_trim()
                     rss2 = self._get_rss()
                     print(f" RSS-after={rss2//1024//1024}MB")
@@ -131,38 +126,28 @@ class ScanEngine:
         self._cancelled = True
         self._cancel_reason = reason
 
-    def _make_exchange_callback(self, session_id: str):
+    def _make_exchange_callback(self, session_id: str, buffer: DiskBuffer):
         async def _on_exchange(
             scanner_name: str, url: str, method: str, status_code: int,
             request_headers: dict, request_body: str,
             response_headers: dict, response_body: str, timing_ms: int,
         ) -> str:
             exchange_id = uuid.uuid4().hex[:12]
-            body_preview = (response_body or "")[:500]
-            ws_data = {
-                "id": exchange_id,
-                "url": url,
-                "method": method,
-                "status_code": status_code,
-                "response_size": len(response_body or ""),
-                "timing_ms": timing_ms,
-                "scanner": scanner_name,
-                "body_preview": body_preview,
-            }
-            self._emit("http_exchange", ws_data)
-            asyncio.create_task(self.db.add_raw_response({
+            exchange_data = {
                 "id": exchange_id,
                 "session_id": session_id,
                 "url": url,
                 "method": method,
-                "request_headers": json.dumps(request_headers),
-                "request_body": request_body[:5000] if request_body else None,
-                "response_headers": json.dumps(response_headers),
-                "response_body": response_body[:5000] if response_body else None,
                 "status_code": status_code,
+                "request_headers": json.dumps(request_headers),
+                "request_body": (request_body or "")[:5000],
+                "response_headers": json.dumps(response_headers),
+                "response_body": (response_body or "")[:5000],
                 "timing_ms": timing_ms,
+                "scanner": scanner_name,
                 "created_at": datetime.utcnow().isoformat(),
-            }))
+            }
+            await buffer.write_exchange(exchange_data)
             return exchange_id
         return _on_exchange
 
@@ -285,10 +270,14 @@ class ScanEngine:
                     await self.session_mgr.update_status(session_id, ScanStatus.ADAPTIVE_SCAN)
                     self._emit("status", {"session_id": session_id, "status": ScanStatus.ADAPTIVE_SCAN.value})
 
+                    buffer = DiskBuffer(session_id)
+                    await buffer.write_findings(waf_findings)
+                    await buffer.write_endpoints(waf_endpoints)
+
                     instances = ScannerRegistry.instantiate_all(
                         scan_config, session_id, self._waf_state, directive_bus
                     )
-                    cb = self._make_exchange_callback(session_id)
+                    cb = self._make_exchange_callback(session_id, buffer)
                     for inst in instances.values():
                         inst._on_exchange = cb
                     if scan_config.enabled_scanners:
@@ -298,10 +287,6 @@ class ScanEngine:
                         if completed:
                             instances = {k: v for k, v in instances.items() if k not in completed}
                     scanner_instances = instances
-
-                    buffer = DiskBuffer(session_id)
-                    await buffer.write_findings(waf_findings)
-                    await buffer.write_endpoints(waf_endpoints)
 
                     if scan_config.scan_mode != "waf_only":
                         host_monitor = HostMonitor(
@@ -327,6 +312,8 @@ class ScanEngine:
                                     cnt += 1
                                 for ep in buffer.read_endpoints(limit=scan_config.max_endpoints):
                                     await self.db.add_endpoint(ep)
+                                for ex in buffer.read_exchanges():
+                                    await self.db.add_raw_response(ex)
                                 await self._update_scanner_state(
                                     session_id, scheduler
                                 )
@@ -356,8 +343,6 @@ class ScanEngine:
                                 await intel.absorb_endpoint(ep, scanner_name)
                             await buffer.write_findings(findings)
                             await buffer.write_endpoints(endpoints)
-                            gc.collect()
-                            self._malloc_trim()
 
                         await self._update_scanner_state(
                             session_id, scheduler
@@ -371,10 +356,14 @@ class ScanEngine:
                     await self.session_mgr.update_status(session_id, ScanStatus.SCANNING)
                     self._emit("status", {"session_id": session_id, "status": ScanStatus.SCANNING.value})
 
+                    buffer = DiskBuffer(session_id)
+                    await buffer.write_findings(waf_findings)
+                    await buffer.write_endpoints(waf_endpoints)
+
                     instances = ScannerRegistry.instantiate_all(
                         scan_config, session_id, self._waf_state
                     )
-                    cb = self._make_exchange_callback(session_id)
+                    cb = self._make_exchange_callback(session_id, buffer)
                     for inst in instances.values():
                         inst._on_exchange = cb
                     if scan_config.enabled_scanners:
@@ -384,10 +373,6 @@ class ScanEngine:
                         if completed:
                             instances = {k: v for k, v in instances.items() if k not in completed}
                     scanner_instances = instances
-
-                    buffer = DiskBuffer(session_id)
-                    await buffer.write_findings(waf_findings)
-                    await buffer.write_endpoints(waf_endpoints)
 
                     if scan_config.scan_mode != "waf_only":
                         host_monitor = HostMonitor(
@@ -419,6 +404,8 @@ class ScanEngine:
                 deduped_findings = await self.deduplicator.dedup_findings_stream(
                     raw_findings
                 )
+                raw_exchanges = list(buffer.read_exchanges())
+                await self.db.add_exchanges_batch(raw_exchanges)
                 await buffer.cleanup()
 
                 result.endpoints = deduped_endpoints
@@ -599,8 +586,6 @@ class ScanEngine:
                 if buffer:
                     await buffer.write_findings(findings)
                     await buffer.write_endpoints(endpoints)
-                    gc.collect()
-                    self._malloc_trim()
                 await self.session_mgr.update_scanner_state(
                     session_id, {"completed_scanners": completed_scanners}
                 )

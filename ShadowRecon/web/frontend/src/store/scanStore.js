@@ -139,12 +139,15 @@ export const useScanStore = defineStore('scan', () => {
         scanStatus.value = 'cancelled'
         cancelReason.value = data.reason || 'user_requested'
         break
-      case 'http_exchange':
-        httpExchanges.value.push(data)
-        if (httpExchanges.value.length > MAX_HTTP_EXCHANGES) {
-          httpExchanges.value = httpExchanges.value.slice(-MAX_HTTP_EXCHANGES)
-        }
-        break
+    }
+  }
+
+  async function fetchExchanges(sessionId) {
+    try {
+      const { data } = await axios.get(`${API}/scan/${sessionId}/exchanges`)
+      httpExchanges.value = data
+    } catch (e) {
+      console.error('Failed to fetch exchanges:', e)
     }
   }
 
@@ -178,6 +181,6 @@ export const useScanStore = defineStore('scan', () => {
     scanStatus, cancelReason, connected,
     fetchCampaigns, getCampaign, startScan, getScanStatus,
     getScanResults, getScanMap, analyzeFinding, analyzeScan, cancelScan,
-    fetchRawResponse, connectWebSocket, disconnectWebSocket, reset,
+    fetchExchanges, fetchRawResponse, connectWebSocket, disconnectWebSocket, reset,
   }
 })

@@ -131,7 +131,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useScanStore } from '../store/scanStore'
 import FindingsFeed from '../components/FindingsFeed.vue'
@@ -197,6 +197,12 @@ const statusDotClass = computed(() => {
   return map[scanStatus.value] || 'bg-cyber-muted-2'
 })
 
+watch(activeTab, (tab) => {
+  if (tab === 'http' && sessionId) {
+    store.fetchExchanges(sessionId)
+  }
+})
+
 onMounted(() => {
   store.reset()
   store.connectWebSocket(sessionId)
@@ -240,6 +246,9 @@ async function pollOnce() {
       if (data && data.endpoints && data.endpoints.length) {
         const existingIds = new Set(store.endpoints.map(e => e.id))
         for (const ep of data.endpoints) { if (!existingIds.has(ep.id)) store.endpoints.push(ep) }
+      }
+      if (activeTab.value === 'http') {
+        await store.fetchExchanges(sessionId)
       }
     }
     pollAttempts.value++

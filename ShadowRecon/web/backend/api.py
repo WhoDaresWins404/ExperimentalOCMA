@@ -607,6 +607,18 @@ def create_app(config: ScanConfig = None) -> FastAPI:
             raise HTTPException(404, "Raw response not found")
         return rows[0]
 
+    @app.get("/api/scan/{session_id}/exchanges")
+    async def get_session_exchanges(session_id: str, limit: int = None, offset: int = 0):
+        rows = await engine.db.get_session_exchanges(session_id, limit, offset)
+        for row in rows:
+            for field in ("request_headers", "response_headers"):
+                if isinstance(row.get(field), str):
+                    try:
+                        row[field] = json.loads(row[field])
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+        return rows
+
     return app
 
 
