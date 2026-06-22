@@ -148,6 +148,7 @@ class ScanEngine:
                 "created_at": datetime.utcnow().isoformat(),
             }
             await buffer.write_exchange(exchange_data)
+            await self.db.add_raw_response(exchange_data)
             return exchange_id
         return _on_exchange
 

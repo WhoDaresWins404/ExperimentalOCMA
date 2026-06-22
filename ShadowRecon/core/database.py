@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import String, Text, Integer, Float, Boolean, DateTime, JSON, ForeignKey, select, delete, func, event
 from sqlalchemy import UniqueConstraint, Index
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from .config import ScanConfig
 from .models import (
@@ -167,6 +168,7 @@ class RawResponseRow(Base):
     response_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status_code: Mapped[int] = mapped_column(Integer, default=0)
     timing_ms: Mapped[int] = mapped_column(Integer, default=0)
+    scanner: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[str] = mapped_column(String(32))
 
 
@@ -194,6 +196,7 @@ class Database:
             await conn.run_sync(Base.metadata.create_all)
             # Migrate existing tables — add columns if missing
             await conn.run_sync(self._migrate_session_table)
+            await conn.run_sync(self._migrate_raw_responses_table)
 
     @staticmethod
     def _migrate_session_table(conn):
@@ -204,6 +207,14 @@ class Database:
             conn.execute(sa.text("ALTER TABLE scan_sessions ADD COLUMN scanner_state TEXT DEFAULT '{}'"))
         if "continue_from" not in columns:
             conn.execute(sa.text("ALTER TABLE scan_sessions ADD COLUMN continue_from VARCHAR(32)"))
+
+    @staticmethod
+    def _migrate_raw_responses_table(conn):
+        import sqlalchemy as sa
+        inspector = sa.inspect(conn)
+        columns = {c["name"] for c in inspector.get_columns("raw_responses")}
+        if "scanner" not in columns:
+            conn.execute(sa.text("ALTER TABLE raw_responses ADD COLUMN scanner VARCHAR(64)"))
 
     async def close(self):
         await self.engine.dispose()
@@ -410,16 +421,17 @@ class Database:
 
     async def add_raw_response(self, data: dict):
         async with self.session() as s:
-            row = RawResponseRow(**data)
-            s.add(row)
+            stmt = sqlite_insert(RawResponseRow).values(**data)
+            stmt = stmt.on_conflict_do_nothing(index_elements=["id"])
+            await s.execute(stmt)
 
     async def add_exchanges_batch(self, exchanges: list[dict]):
         if not exchanges:
             return
         async with self.session() as s:
-            for data in exchanges:
-                row = RawResponseRow(**data)
-                s.add(row)
+            stmt = sqlite_insert(RawResponseRow).values(exchanges)
+            stmt = stmt.on_conflict_do_nothing(index_elements=["id"])
+            await s.execute(stmt)
 
     async def trim_raw_responses(self, session_id: str, max_count: int = 5000):
         async with self.session() as s:
