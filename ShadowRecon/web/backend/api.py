@@ -87,8 +87,12 @@ def create_app(config: ScanConfig = None) -> FastAPI:
 
     @app.on_event("shutdown")
     async def shutdown():
-        for task in active_scans.values():
+        engine.cancel("server_shutdown")
+        tasks = list(active_scans.values())
+        for task in tasks:
             task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         await engine.shutdown()
 
     @app.get("/")
@@ -275,8 +279,11 @@ def create_app(config: ScanConfig = None) -> FastAPI:
                             pass
             finally:
                 engine.remove_progress(progress_callback)
+                if session.id in active_scans:
+                    del active_scans[session.id]
 
-        background_tasks.add_task(wrapped_scan)
+        scan_task = asyncio.create_task(wrapped_scan())
+        active_scans[session.id] = scan_task
         return {"status": "started", "campaign_id": campaign.id, "session_id": session.id}
 
     @app.get("/api/scan/{session_id}/status")
@@ -625,4 +632,4 @@ def create_app(config: ScanConfig = None) -> FastAPI:
 def run_server(config: ScanConfig = None, host: str = "0.0.0.0", port: int = 8000):
     import uvicorn
     app = create_app(config)
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host=host, port=port, timeout_graceful_shutdown=30)

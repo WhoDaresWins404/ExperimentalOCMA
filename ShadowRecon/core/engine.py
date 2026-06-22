@@ -167,6 +167,14 @@ class ScanEngine:
         await self._scheduler.start()
 
     async def shutdown(self):
+        if self._monitor_task:
+            self._monitor_task.cancel()
+            self._monitor_task = None
+        emit_tasks = list(self._emit_tasks)
+        for task in emit_tasks:
+            task.cancel()
+        if emit_tasks:
+            await asyncio.gather(*emit_tasks, return_exceptions=True)
         await self._scheduler.stop()
         await self._callback_server.stop()
         await self.db.close()
