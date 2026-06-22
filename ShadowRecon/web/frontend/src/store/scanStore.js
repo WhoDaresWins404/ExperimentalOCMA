@@ -3,7 +3,6 @@ import { ref, computed } from 'vue'
 import axios from 'axios'
 
 const API = '/api'
-const MAX_HTTP_EXCHANGES = 200
 
 export const useScanStore = defineStore('scan', () => {
   const campaigns = ref([])

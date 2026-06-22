@@ -247,9 +247,7 @@ async function pollOnce() {
         const existingIds = new Set(store.endpoints.map(e => e.id))
         for (const ep of data.endpoints) { if (!existingIds.has(ep.id)) store.endpoints.push(ep) }
       }
-      if (activeTab.value === 'http') {
-        await store.fetchExchanges(sessionId)
-      }
+      await store.fetchExchanges(sessionId)
     }
     pollAttempts.value++
     wsError.value = false
