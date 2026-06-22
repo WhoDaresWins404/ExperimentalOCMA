@@ -421,16 +421,16 @@ class Database:
 
     async def add_raw_response(self, data: dict):
         async with self.session() as s:
-            stmt = sqlite_insert(RawResponseRow).values(**data)
-            stmt = stmt.on_conflict_do_nothing(index_elements=["id"])
-            await s.execute(stmt)
+            row = RawResponseRow(**data)
+            await s.merge(row)
 
     async def add_exchanges_batch(self, exchanges: list[dict]):
         if not exchanges:
             return
         async with self.session() as s:
-            stmt = sqlite_insert(RawResponseRow).values(exchanges)
-            stmt = stmt.on_conflict_do_nothing(index_elements=["id"])
+            table = RawResponseRow.__table__
+            stmt = sqlite_insert(table).values(exchanges)
+            stmt = stmt.on_conflict_do_nothing()
             await s.execute(stmt)
 
     async def trim_raw_responses(self, session_id: str, max_count: int = 5000):
