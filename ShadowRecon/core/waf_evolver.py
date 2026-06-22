@@ -1,4 +1,5 @@
 import random
+import urllib.parse
 from dataclasses import dataclass, field
 
 
@@ -72,7 +73,6 @@ class WafEvolver:
             del self._state[target_url]
 
     def apply_evasion(self, payload: str, technique: str) -> str:
-        import urllib.parse
         if technique == "none":
             return payload
         elif technique == "url_encode":
@@ -103,3 +103,21 @@ class WafEvolver:
         elif technique == "header_bypass":
             return payload
         return payload
+
+    def should_bypass(self, target_url: str, status_code: int, response_text: str = "") -> bool:
+        state = self.get_state(target_url)
+        if state.consecutive_blocks >= 3:
+            return True
+        return status_code in (403, 429, 503)
+
+    def detect_and_record_block(self, target_url: str, status_code: int, response_text: str = ""):
+        if status_code in (403, 429, 503):
+            self.record_block(target_url)
+            return True
+        if status_code == 200 and response_text and any(
+            phrase in response_text.lower()
+            for phrase in ["blocked", "denied", "rate limit", "too many requests", "waf", "challenge"]
+        ):
+            self.record_block(target_url)
+            return True
+        return False

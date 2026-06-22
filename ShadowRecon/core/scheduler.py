@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
@@ -41,6 +42,9 @@ class PriorityScheduler:
         self._queue: list[ScannerJob] = []
         self._completed: set[str] = set()
         self._cancelled = False
+        self._rate_limits: dict[str, float] = {}
+        self._base_delay: float = 0.0
+        self._max_delay: float = 30.0
 
     def build_from_profile(self, profile: ScanProfile, mode: str):
         if mode == "light":
@@ -81,6 +85,19 @@ class PriorityScheduler:
 
         self._queue.sort(key=lambda j: j.priority)
 
+    def record_rate_limit(self, scanner_name: str, retry_after: float = 5.0):
+        now = time.time()
+        self._rate_limits[scanner_name] = now + retry_after
+        self._base_delay = min(self._base_delay + 1.0, self._max_delay)
+
+    def clear_rate_limit(self, scanner_name: str):
+        self._rate_limits.pop(scanner_name, None)
+
+    def _get_effective_delay(self) -> float:
+        now = time.time()
+        active = [v - now for v in self._rate_limits.values() if v > now]
+        return max(self._base_delay, max(active) if active else 0.0)
+
     async def run_next(self, target: ScanTarget) -> Optional[tuple[str, tuple]]:
         if self._cancelled:
             raise ScanCancelled()
@@ -88,6 +105,10 @@ class PriorityScheduler:
             raise HostUnreachable(target.url, self._host_monitor.unreachable_for)
 
         while self._queue:
+            delay = self._get_effective_delay()
+            if delay > 0:
+                await asyncio.sleep(delay)
+
             job = self._queue.pop(0)
 
             if job.name in self._completed:
@@ -129,6 +150,7 @@ class PriorityScheduler:
                 )
                 self._completed.add(job.name)
                 self._budget.surplus(job.name, job.time_budget)
+                self._base_delay = max(0.0, self._base_delay - 0.5)
             except asyncio.TimeoutError:
                 findings, endpoints = [], []
                 self._completed.add(job.name)

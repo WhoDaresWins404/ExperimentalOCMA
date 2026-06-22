@@ -45,7 +45,7 @@ class ProviderConfig:
     to_addrs: list[str] = field(default_factory=list)
     rate_limit_seconds: int = 60
     min_severity: str = "low"
-    events: list[str] = field(default_factory=lambda: ["scan.complete", "finding.critical", "scan.failed"])
+    events: list[str] = field(default_factory=lambda: ["scan.complete", "finding.critical", "scan.failed", "scan.started", "scan.aborted", "scan.cancelled"])
 
 
 class NotificationManager:
@@ -163,6 +163,17 @@ class NotificationManager:
                 server.starttls()
                 server.login(p.smtp_user, p.smtp_pass)
             server.sendmail(p.from_addr, p.to_addrs, msg.as_string())
+
+    async def send_scan_event(self, event_type: str, session_id: str, target: str, campaign_id: str = "",
+                                description: str = "", extra: dict = None):
+        await self.send(NotificationEvent(
+            event_type=event_type,
+            title=f"Scan {event_type.split('.')[-1]}: {target}",
+            description=description or f"Scan session {session_id} on {target} has {event_type.split('.')[-1]}",
+            target=target,
+            session_id=session_id,
+            extra=extra or {},
+        ))
 
     async def _custom_webhook(self, p: ProviderConfig, event: NotificationEvent):
         secret = p.bot_token or ""
