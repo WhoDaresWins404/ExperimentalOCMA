@@ -87,11 +87,20 @@ class ScanEngine:
                 await asyncio.sleep(interval)
                 rss = self._get_rss()
                 tasks = len(asyncio.all_tasks())
-                print(f"[mem] RSS={rss//1024//1024}MB tasks={tasks}")
-                if rss > 800_000_000:
-                    print(f"[mem] running malloc_trim (RSS={rss//1024//1024}MB)")
+                print(f"[mem] RSS={rss//1024//1024}MB tasks={tasks}", end="")
+                if rss > 500_000_000:
+                    import collections
                     gc.collect()
+                    counts = collections.Counter(type(o).__name__ for o in gc.get_objects())
+                    top = counts.most_common(15)
+                    print(f" objects={sum(counts.values())}", end="")
+                    for name, cnt in top:
+                        print(f" {name}={cnt}", end="")
                     self._malloc_trim()
+                    rss2 = self._get_rss()
+                    print(f" RSS-after={rss2//1024//1024}MB")
+                else:
+                    print()
             except Exception as e:
                 print(f"[mem] monitor error: {e}")
 
