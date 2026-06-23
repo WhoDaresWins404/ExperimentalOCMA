@@ -203,7 +203,7 @@ class ScanEngine:
     ) -> ScanResult:
         self._cancelled = False
         self._cancel_reason = "user_requested"
-        self.deduplicator.reset()
+        await self.deduplicator.reset()
         self._waf_state.clear()
         resume_state = None
         merged = self.config.model_dump()
