@@ -57,7 +57,7 @@ class HostMonitor:
             async with httpx.AsyncClient(timeout=self.http_timeout, follow_redirects=True) as client:
                 await client.head(self.target_url)
             self._on_success()
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError):
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError, httpx.ReadError):
             self._on_failure()
 
         return self.status
